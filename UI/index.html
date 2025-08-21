@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Sound Tapping</title>
+  <link rel="stylesheet" href="style.css"/>
+</head>
+<body>
+  <header>
+    <h1>Sound Tapping</h1>
+  </header>
+
+  <main>
+    <!-- 홈 화면 -->
+    <section id="homeView" class="view active">
+      <p>난이도를 선택하세요.</p>
+      <div class="button-container">
+        <button id="btn1">Tapping <br>연습모드</button>
+        <button id="btn2">Sound & Light<br>난이도 하</button>
+        <button id="btn3">Only Sound<br>난이도 중</button>
+        <button id="btn4">Many Sound<br>난이도 상</button>
+      </div>
+      <button id="startBtn">녹음하기</button>
+      <br><br>
+      <button id="viewDataBtn">데이터 보기</button>
+    </section>
+
+    <!-- 모드 1: Tapping 연습모드 -->
+    <!-- 모드 1: Tapping 연습모드 -->
+    <section id="mode1View" class="view">
+      <h2>Tapping 연습모드 설정</h2>
+      <div class="form-row">
+        <label>반복 횟수</label>
+        <input type="number" id="m1_reps" min="1" max="50" value="10"/>
+      </div>
+      <div class="actions">
+        <button id="m1Run" class="run-btn">실행</button>
+        <button class="secondary" data-back>뒤로가기</button>
+      </div>
+    </section>
+
+
+    <!-- 모드 2: Sound & Light (난이도 하) -->
+    <section id="mode2View" class="view">
+    <h2>Sound & Light (하) 설정</h2>
+
+    <div class="form-row">
+        <label>라운드 수</label>
+        <input type="number" id="m2_rounds" min="1" max="20" value="5"/>
+    </div>
+
+    <div class="form-row">
+        <label>시각 힌트 밝기</label>
+        <input type="range" id="m2_brightness" min="0" max="100" value="70"/>
+    </div>
+
+    <!-- 🔊 음량 조절 추가 -->
+    <div class="form-row">
+        <label>음량(%) <span id="m2_volumeValue">80%</span></label>
+        <input type="range" id="m2_volume" min="0" max="100" value="80"/>
+    </div>
+
+    <div class="actions">
+        <button id="m2Test">테스트음 재생</button>
+        <button id="m2Run" class="run-btn">실행</button>
+        <button class="secondary" data-back>뒤로가기</button>
+    </div>
+    </section>
+
+
+    <!-- 모드 3: Only Sound (중) -->
+    <!-- 모드 3: Only Sound (중) -->
+    <section id="mode3View" class="view">
+    <h2>Only Sound (중) 설정</h2>
+    <div class="form-row">
+        <label>라운드 수</label>
+        <input type="number" id="m3_rounds" min="1" max="20" value="7"/>
+    </div>
+    <div class="form-row">
+        <label>음량 <span id="m3_volumeValue">80%</span></label>
+        <input type="range" id="m3_volume" min="0" max="100" value="80"/>
+    </div>
+    <div class="actions">
+        <button id="m3Test">테스트음 재생</button>
+        <button id="m3Run" class="run-btn">실행</button>
+        <button class="secondary" data-back>뒤로가기</button>
+    </div>
+    </section>
+
+    <!-- 모드 4: Many Sound (상) --> 
+    <section id="mode4View" class="view">
+      <h2>Many Sound (상) 설정</h2>
+
+      <div class="form-row">
+        <label>라운드 수</label>
+        <input type="number" id="m4_rounds" min="1" max="20" value="5"/>
+      </div>
+
+      <!-- 🔊 음량 조절 -->
+      <div class="form-row">
+        <label>음량 <span id="m4_volumeValue">80%</span></label>
+        <input type="range" id="m4_volume" min="0" max="100" value="80"/>
+      </div>
+
+      <div class="actions">
+        <button id="m4Test">테스트음 재생</button>
+        <button id="m4Run" class="run-btn">실행</button>
+        <button class="secondary" data-back>뒤로가기</button>
+      </div>
+    </section>
+
+
+    
+    <!-- 데이터 보기 화면 -->
+    <section id="dataView" class="view">
+    <h2>게임 데이터</h2>
+    <div class="scroll-box">
+        <table id="dataTable" border="1" style="margin:auto;">
+        <thead>
+          <tr>
+            <th>날짜</th>
+            <th>게임 실행</th>
+            <th>라운드</th>
+            <th>성공 시도</th>
+            <th>소요 시간(초)</th>
+            <th>삭제</th>
+          </tr>
+        </thead>
+
+        <tbody>
+            <!-- 데이터 행이 JS로 추가됨 -->
+        </tbody>
+        </table>
+    </div>
+    <div class="actions">
+        <button class="secondary" data-back>뒤로가기</button>
+    </div>
+    </section>
+
+
+  </main>
+
+  <footer>
+    <small>&copy; 2025 Creative Design Fair: Sound Tapping</small>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>

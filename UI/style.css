@@ -1,0 +1,130 @@
+/* 전체 기본 스타일 */
+body {
+  font-family: Arial, sans-serif;
+  text-align: center;
+  margin: 0;
+  padding: 0;
+}
+
+/* 헤더 */
+header {
+  background-color: #4CAF50;
+  color: white;
+  padding: 1rem;
+}
+
+/* 메인 영역 */
+main {
+  padding: 2rem;
+}
+
+/* 화면(View) 전환 기본 */
+.view { display: none; }
+.view.active { display: block; }
+
+/* 버튼 묶음 */
+.button-container {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+  margin-top: 20px;
+}
+.button-container button,
+.actions button,
+#startBtn {
+  padding: 10px 20px;
+  font-size: 16px;
+  cursor: pointer;
+}
+button:hover {
+  background-color: #4CAF50;
+  color: white;
+}
+
+/* 홈화면 - 녹음 버튼 여백 */
+#startBtn { margin-top: 30px; }
+
+/* 폼 레이아웃(가벼운 정리) */
+.form-row {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  align-items: center;
+  margin: 12px 0;
+}
+.form-row label { min-width: 120px; text-align: right; }
+.form-row input[type="number"],
+.form-row input[type="range"] { width: 180px; }
+
+.actions {
+  margin-top: 20px;
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+.secondary {
+  background-color: #e9e9e9;
+}
+
+/* 푸터 */
+footer {
+  margin-top: 2rem;
+  padding: 1rem;
+  background-color: #f1f1f1;
+}
+
+/* 실행 버튼 전용 스타일 */
+.run-btn {
+  background-color: #1cb23f;
+  color: white;
+  font-size: 18px;
+  font-weight: bold;
+  padding: 14px 28px;
+  border-radius: 6px;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+  transition: transform 0.15s ease, background-color 0.15s ease;
+}
+
+.run-btn:hover {
+  background-color:  #148a30;
+  transform: scale(1.05);
+}
+
+#viewDataBtn {
+  margin-top: 15px;
+  padding: 14px 30px;
+  font-size: 17px;
+  background-color: #1cb23f;
+  color: white;
+  border: none;
+  border-radius: 6px;
+}
+
+#viewDataBtn:hover {
+  background-color:  #148a30;
+}
+
+/* 스크롤 박스 스타일 */
+.scroll-box {
+  max-height: 300px;  /* 원하는 높이 */
+  overflow-y: auto;   /* 세로 스크롤만 */
+  border: 1px solid #ccc;
+  padding: 10px;
+  margin: 0 auto;
+  width: fit-content; /* 표 크기에 맞춰 중앙 정렬 */
+  background-color: #fff;
+}
+
+/* 데이터 행 삭제 버튼 */
+.row-delete {
+  background: transparent;
+  border: none;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 4px 8px;
+}
+.row-delete:hover {
+  background-color:#d32f2f;
+  color: #ffffff
+}
