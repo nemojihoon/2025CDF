@@ -1,66 +1,44 @@
-/*
- * Main HUB (WebSocket + NeoPixel + Vibration ISR) + ESP-NOW (send only)
- * - Web에서 MODE2/3/4 시작 신호를 받으면
- *   서브들에게 "모드수,음량,임의정답(1~4)" 형태의 CSV를 ESP-NOW 브로드캐스트로 발송
- * - MODE1은 발송하지 않음
- */
-
 #include <Arduino.h>
 #include <WiFi.h>
 #include <WiFiMulti.h>
 #include <WebSocketsServer.h>
 #include <Adafruit_NeoPixel.h>
 #include <esp_now.h>
+#include <FS.h>
+#include <SD.h>
+#include <SPI.h>
+#include "AudioFileSourceSD.h"
+#include "AudioGeneratorWAV.h"
+#include "AudioOutputI2S.h"
 
-///////////////////////
-// === WiFi ===
-///////////////////////
+
 WiFiMulti WiFiMulti;
-// TODO: 바꿔 넣으세요
 const char* WIFI_SSID = "302-211";
 const char* WIFI_PASS = "";  // 필요 시 비번
 
-///////////////////////
-// === WebSocket ===
-///////////////////////
 WebSocketsServer webSocket(81);
+unit8_t clientNum;
 
-///////////////////////
-// === NeoPixel ===
-///////////////////////
-#define NEOPIXEL_PIN   5
+#define NEOPIXEL_PIN   16      // 데이터핀 (필요시 변경)
 #define NUM_LEDS       12
 Adafruit_NeoPixel ring(NUM_LEDS, NEOPIXEL_PIN, NEO_GRB + NEO_KHZ800);
 
-///////////////////////
-// === Vibration (SW-420) ===
-///////////////////////
-#define VIB_PIN        4       // 디지털 입력 (DO)
+#define VIB_PIN        4       // 디지털 입력
+#define VIB_DEBOUNCE_MS  1000; // 잡음 방지
 volatile bool vibISRFlag = false;
 volatile uint32_t vibLastMs = 0;
-const uint32_t VIB_DEBOUNCE_MS = 200; // 잡음 방지
 
-void IRAM_ATTR onVibrationISR() {
-  uint32_t now = millis();
-  if (now - vibLastMs < VIB_DEBOUNCE_MS) return;
-  vibLastMs = now;
-  vibISRFlag = true;
-}
-
-///////////////////////
-// === Mode1 State ===
-///////////////////////
-
-#define ID 1
+#define ID 2
 bool isME = false;
 int mode = 0;
 
-bool     mode1Active = false;
-uint16_t mode1TotalRounds = 0;
-uint16_t mode1CurrentRound = 0;
-bool     mode1ReportedThisRound = false; // 이 라운드에서 정답 보고 했는지
+#define SD_CS 5  // your SD card CS pin
 
-// 유틸: 랜덤 색 생성
+AudioGeneratorWAV *wav;
+AudioFileSourceSD *file;
+AudioOutputI2S *out;
+
+//neopixel
 uint32_t randomColor() {
   uint8_t r = random(40, 256);
   uint8_t g = random(40, 256);
@@ -76,6 +54,30 @@ void neopixelAll(uint32_t c) {
 void neopixelOff() {
   neopixelAll(ring.Color(0,0,0));
 }
+
+// vibration detection
+void IRAM_ATTR onVibrationISR() {
+  uint32_t now = millis();
+  if (now - vibLastMs < VIB_DEBOUNCE_MS) return;
+  vibLastMs = now;
+  vibISRFlag = true;
+}
+
+///////////////////////
+// === Mode1 State ===
+///////////////////////
+
+#define ID 1
+bool isME = false;
+int mode = 0;
+int volume = 0;
+int failCnt = 0;
+
+bool     mode1Active = false;
+uint16_t mode1TotalRounds = 0;
+uint16_t mode1CurrentRound = 0;
+bool     mode1ReportedThisRound = false; // 이 라운드에서 정답 보고 했는지
+
 
 void startRound(int mode, int volume) {
   switch(mode) {
@@ -112,52 +114,28 @@ void stopRound(int mode) {
 }
 
 // start
+void startMode1(int volume) {
+  uint32_t c = randomColor();
+  neopixelAll(c);
+}
+
 void startMode2(int volume) {
   uint32_t c = randomColor();
   neopixelAll(c);
   wav->begin(file, out);
 }
 
+void stopMode1() {
+  neopixelOff();
+}
+
 void stopMode2() {
   neopixelOff();
-}
-
-
-
-// 라운드 시작: 색 점등 + 클라에 공지
-void mode1StartRound(uint8_t clientNum) {
-  if (!mode1Active) return;
-  if (mode1CurrentRound > mode1TotalRounds) return;
-
-  mode1ReportedThisRound = false;
-  uint32_t c = randomColor();
-  neopixelAll(c);
-}
-
-void mode1Stop(uint8_t clientNum, bool sendDone = true){
-  mode1Active = false;
-  mode1TotalRounds = 0;
-  mode1CurrentRound = 0;
-  mode1ReportedThisRound = false;
-  neopixelOff();
-  if (sendDone) {
-    webSocket.sendTXT(clientNum, "MODE1_DONE");
+  if(wav->isRunning()) {
+    wav->stop();
   }
 }
 
-///////////////////////
-// === Helpers ===
-///////////////////////
-
-// key=value 파싱 (구분자 '|')
-int getIntParam(const String& msg, const String& key, int defVal) {
-  int pos = msg.indexOf(key + "=");
-  if (pos < 0) return defVal;
-  int end = msg.indexOf("|", pos);
-  String v = (end < 0) ? msg.substring(pos + key.length() + 1)
-                       : msg.substring(pos + key.length() + 1, end);
-  return v.toInt();
-}
 
 ///////////////////////
 // === ESP-NOW ===
@@ -215,12 +193,14 @@ void receiveCallback(const esp_now_recv_info_t *info, const uint8_t *data, int d
 
   Serial.printf("Received message from: %s - %s\n", macStr, buffer);
 
-  if(strcmp("stop", buffer) == 0) {
+  if(strcmp("success", buffer) == 0) {
     stopRound(mode);
+    failCnt = 0;
+  } else if(strcmp("fail", buffer) == 0) {
+    failCnt++;
   }
 }
 
-// (옵션) 송신 완료 콜백: 성공/실패 로그만
 void sentCallback(const wifi_tx_info_t *info, esp_now_send_status_t status) {
   Serial.print("[NOW] Last Packet Send Status: ");
   Serial.println(status == ESP_NOW_SEND_SUCCESS ? "Delivery Success" : "Delivery Fail");
@@ -230,6 +210,7 @@ void sentCallback(const wifi_tx_info_t *info, esp_now_send_status_t status) {
 // === WebSocket 이벤트 ===
 ///////////////////////
 void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length) {
+  clientNum = num;
   switch(type) {
     case WStype_DISCONNECTED:
       Serial.printf("[%u] Disconnected\n", num);
@@ -247,73 +228,34 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length
       msg.trim();
       Serial.printf("[%u] RX: %s\n", num, msg.c_str());
 
-      // ===== MODE1: 발송하지 않음 (기존 동작 유지) =====
       if (msg.startsWith("MODE1_START")) {
-        int reps = getIntParam(msg, "reps", 1);
-        mode1Active = true;
-        mode1TotalRounds = (reps <= 0 ? 1 : reps);
-        mode1CurrentRound = 1;
-        mode1ReportedThisRound = false;
+        char *token = strtok(msg, ",");
+        if (token != NULL) {
+          mode = atoi(token);
+          token = strtok(NULL, ",");
+        }
+        if (token != NULL) {
+          volume = atoi(token);   
+          token = strtok(NULL, ",");
+        }
+        if (token != NULL) {
+          isMe = (ID == atoi(token));
+        }
+        startRound(mode, volume);
+
         webSocket.sendTXT(num, "MODE1_ACK|reps=" + String(mode1TotalRounds));
         mode1StartRound(num);
-        break;
-      }
-      if (msg == "MODE1_NEXT") {
-        if (mode1Active) {
-          mode1CurrentRound++;
-          if (mode1CurrentRound <= mode1TotalRounds) {
-            mode1StartRound(num);
-          } else {
-            mode1Stop(num, true);
-          }
-        }
-        break;
-      }
-      if (msg == "MODE1_STOP") {
-        mode1Stop(num, true);
-        break;
-      }
-
-      // ===== MODE2/3/4: 웹에서 받은 파라미터 → 서브로 CSV 발송 =====
-      if (msg.startsWith("MODE2_RUN")) {
-        int rounds     = getIntParam(msg, "rounds",     5);
-        int brightness = getIntParam(msg, "brightness", 70);
-        int volume     = getIntParam(msg, "volume",     80);
-        Serial.printf("[MODE2_RUN] rounds=%d, brightness=%d, volume=%d\n", rounds, brightness, volume);
-
-        webSocket.sendTXT(num, "MODE2_ACK");
-        break;
-      }
-
-      if (msg.startsWith("MODE3_RUN")) {
-        int rounds = getIntParam(msg, "rounds", 7);
-        int volume = getIntParam(msg, "volume", 80);
-        Serial.printf("[MODE3_RUN] rounds=%d, volume=%d\n", rounds, volume);
-
-        webSocket.sendTXT(num, "MODE3_ACK");
-        break;
-      }
-
-      if (msg.startsWith("MODE4_RUN")) {
-        int rounds = getIntParam(msg, "rounds", 5);
-        int volume = getIntParam(msg, "volume", 80);
-        Serial.printf("[MODE4_RUN] rounds=%d, volume=%d\n", rounds, volume);
-
-        webSocket.sendTXT(num, "MODE4_ACK");
-        break;
-      }
-
-      // 디버그: LED 제어
-      if (msg == "LED_ON")  { neopixelAll(ring.Color(255,255,255)); webSocket.sendTXT(num, "LED_STATE:1"); break; }
-      if (msg == "LED_OFF") { neopixelOff();                        webSocket.sendTXT(num, "LED_STATE:0"); break; }
-
-      // 알 수 없는 메시지
-      webSocket.sendTXT(num, "UNKNOWN_CMD");
+      } else if(msg == "LED_ON") {
+        neopixelAll(ring.Color(255,255,255)); 
+        webSocket.sendTXT(num, "LED_STATE:1"); 
+      } else if(msg == "LED_OFF") {
+        neopixelOff();    
+        webSocket.sendTXT(num, "LED_STATE:0"); 
+      } else {
+        webSocket.sendTXT(num, "UNKNOWN_CMD");
+      }      
       break;
     }
-
-    default:
-      break;
   }
 }
 
@@ -356,23 +298,39 @@ void setup() {
   webSocket.begin();
   webSocket.onEvent(webSocketEvent);
 
-  // 난수 시드
-  randomSeed(esp_random());
+    // Init SD
+  if (!SD.begin(SD_CS)) {
+    Serial.println("SD init failed!");
+    while (1);
+  }
+  Serial.println("SD init OK.");
+
+  // Setup audio output to internal DAC (GPIO25)
+  out = new AudioOutputI2S(
+    0,                                 // I2S 포트 번호(대부분 0)
+    AudioOutputI2S::INTERNAL_DAC,      // <- 여기!
+    8,                                 // DMA 버퍼 개수(기본값 OK)
+    AudioOutputI2S::APLL_DISABLE
+  );
+
+  // Open WAV file from SD
+  file = new AudioFileSourceSD("/sound.wav");
+  wav = new AudioGeneratorWAV();
 }
+
 
 void loop() {
   webSocket.loop();
-
-  // (참고) MODE1의 진동 발생 처리 (현 단계 유지)
   if (vibISRFlag) {
     vibISRFlag = false;
-    if (mode1Active && !mode1ReportedThisRound) {
-      mode1ReportedThisRound = true;
-      String msg = "MODE1_CORRECT|round=" + String(mode1CurrentRound);
-      webSocket.broadcastTXT(msg);
-
-      neopixelAll(ring.Color(0,0,0));
-      delay(500);
+    if(isMe) {
+      isMe = false;
+      broadcast("success");
+      stopRound(mode);
+      String msg = "success," + String(failCnt+1);
+      webSocket.sendTXT(clientNum, msg);
+    } else {
+      failCnt++;
     }
   }
 }

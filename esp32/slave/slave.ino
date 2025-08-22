@@ -1,10 +1,3 @@
-/*
- * Tapping Practice (Mode1) with WS2812B & SW-420
- * - WebSocket control
- * - Random solid color per round
- * - Vibration detection (SW-420, digital)
- */
-
 #include <Arduino.h>
 #include <WiFi.h>
 #include <WiFiMulti.h>
@@ -22,14 +15,15 @@
 #define NUM_LEDS       12
 Adafruit_NeoPixel ring(NUM_LEDS, NEOPIXEL_PIN, NEO_GRB + NEO_KHZ800);
 
-#define VIB_PIN        4       // 디지털 입력 (DO)
-#define VIB_DEBOUNCE_MS  1000; // 잡음 방지
+#define VIB_PIN        4       // 디지털 입력
+#define VIB_DEBOUNCE_MS  1000 // 잡음 방지
 volatile bool vibISRFlag = false;
 volatile uint32_t vibLastMs = 0;
 
 #define ID 2
-bool isME = false;
+bool isMe = false;
 int mode = 0;
+int volume = 0;
 
 #define SD_CS 5  // your SD card CS pin
 
@@ -84,12 +78,12 @@ void receiveCallback(const esp_now_recv_info_t *info, const uint8_t *data, int d
 
   Serial.printf("Received message from: %s - %s\n", macStr, buffer);
 
-  if(strcmp("stop", buffer) == 0) {
+  if(strcmp("success", buffer) == 0) {
     stopRound(mode);
   } else {
     char *token = strtok(buffer, ",");
     if (token != NULL) {
-      modeNum = atoi(token);
+      mode = atoi(token);
       token = strtok(NULL, ",");
     }
     if (token != NULL) {
@@ -97,7 +91,7 @@ void receiveCallback(const esp_now_recv_info_t *info, const uint8_t *data, int d
       token = strtok(NULL, ",");
     }
     if (token != NULL) {
-      isMe = (ID == atio(token));
+      isMe = (ID == atoi(token));
     }
     startRound(mode, volume);
   }
@@ -108,6 +102,45 @@ void sentCallback(const wifi_tx_info_t *info, esp_now_send_status_t status) {
   // print status only (or inspect fields if needed).
   Serial.print("Last Packet Send Status: ");
   Serial.println(status == ESP_NOW_SEND_SUCCESS ? "Delivery Success" : "Delivery Fail");
+}
+
+// helper: add peer (broadcast or unicast)
+static bool ensurePeer(const uint8_t addr[6]) {
+  if (esp_now_is_peer_exist(addr)) return true;
+  esp_now_peer_info_t peerInfo = {};
+  memcpy(peerInfo.peer_addr, addr, 6);
+  peerInfo.ifidx   = WIFI_IF_STA;   // use STA interface
+  peerInfo.channel = 0;             // 0 = current channel; or set explicit WiFi.channel()
+  peerInfo.encrypt = false;         // no LMK
+  // peerInfo.lmk left zeroed
+  return (esp_now_add_peer(&peerInfo) == ESP_OK);
+}
+
+void broadcast(const String &message) {
+  // broadcast FF:FF:FF:FF:FF:FF
+  const uint8_t broadcastAddress[6] = {0xFF,0xFF,0xFF,0xFF,0xFF,0xFF};
+  if (!ensurePeer(broadcastAddress)) {
+    Serial.println("Failed to add broadcast peer");
+    return;
+  }
+  esp_err_t result = esp_now_send(broadcastAddress,
+                                  (const uint8_t*)message.c_str(),
+                                  message.length());
+  if (result == ESP_OK) {
+    Serial.println("Broadcast message success");
+  } else if (result == ESP_ERR_ESPNOW_NOT_INIT) {
+    Serial.println("ESPNOW not Init.");
+  } else if (result == ESP_ERR_ESPNOW_ARG) {
+    Serial.println("Invalid Argument");
+  } else if (result == ESP_ERR_ESPNOW_INTERNAL) {
+    Serial.println("Internal Error");
+  } else if (result == ESP_ERR_ESPNOW_NO_MEM) {
+    Serial.println("ESP_ERR_ESPNOW_NO_MEM");
+  } else if (result == ESP_ERR_ESPNOW_NOT_FOUND) {
+    Serial.println("Peer not found.");
+  } else {
+    Serial.println("Unknown error");
+  }
 }
 
 void startRound(int mode, int volume) {
@@ -147,6 +180,9 @@ void startMode2(int volume) {
 
 void stopMode2() {
   neopixelOff();
+  if(wav->isRunning()) {
+    wav->stop();
+  }
 }
 
 void setup() {
@@ -161,6 +197,16 @@ void setup() {
   // Vibration
   pinMode(VIB_PIN, INPUT); // 모듈 DO가 기본 HIGH/LOW 출력
   attachInterrupt(digitalPinToInterrupt(VIB_PIN), onVibrationISR, RISING);
+  
+  // ESP-NOW 초기화 
+  if (esp_now_init() == ESP_OK) {
+    Serial.println("ESP-NOW Init Success");
+    esp_now_register_send_cb(sentCallback);  // 수신 콜백 등록 안 함 (요청사항)
+  } else {
+    Serial.println("ESP-NOW Init Failed. Rebooting...");
+    delay(2000);
+    ESP.restart();
+  }
 
   // Init SD
   if (!SD.begin(SD_CS)) {
@@ -188,16 +234,16 @@ void setup() {
 void loop() {
   // 진동 발생 처리 (ISR 플래그 폴링)
   if(!wav->loop() && isMe) {
-    wav->begin();
+    wav->begin(file, out);
   }
-  if (vibISRFlag && isMe) {
+  if (vibISRFlag) {
     vibISRFlag = false;
-    isMe = false;
-    wav->stop();
-
-    broadcast("stop");
-    neopixelAll(ring.Color(0,0,0));
-    delay(500);
-    stopRound(mode);
+    if(isMe) {
+      isMe = false;
+      broadcast("success");
+      stopRound(mode);
+    } else {
+      broadcast("fail");    
+    }
   }
 }
