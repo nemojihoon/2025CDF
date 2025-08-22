@@ -71,7 +71,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // 조건을 만족하는 "다음 1개의 메시지"를 기다리는 헬퍼
   function waitForMessage(ws, predicate = () => true, timeoutMs = 0) {
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve, reject) => { 
+      //<<<<<<<<오류 관리========
       if (!ws || ws.readyState !== WebSocket.OPEN) {
         reject(new Error("WebSocket not open"));
         return;
@@ -95,7 +96,7 @@ document.addEventListener("DOMContentLoaded", () => {
         cleanup();
         reject(new Error("WebSocket error"));
       };
-
+      //========오류 관리>>>>>>>>>
       const onMsg = async (e) => {
         try {
           let text;
