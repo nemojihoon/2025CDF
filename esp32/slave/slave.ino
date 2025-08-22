@@ -11,6 +11,11 @@
 // #include "AudioGeneratorWAV.h"
 // #include "AudioOutputI2S.h"
 
+// WiFiMulti WiFiMulti;
+// const char* WIFI_SSID = "302-211";
+// const char* WIFI_PASS = "";  // 필요 시 비번
+
+
 #define NEOPIXEL_PIN   16      // 데이터핀 (필요시 변경)
 #define NUM_LEDS       12
 Adafruit_NeoPixel ring(NUM_LEDS, NEOPIXEL_PIN, NEO_GRB + NEO_KHZ800);
@@ -27,9 +32,10 @@ volatile int  pendingVol   = 0;
 volatile bool isPlaying = false;
 
 #define ID 2
-bool isMe = false;
-int mode = 0;
-int volume = 0;
+volatile bool isMe = false;
+volatile int mode = 0;
+volatile int volume = 0;
+volatile int answer = 0;
 
 // #define SD_CS 5  // your SD card CS pin
 
@@ -105,9 +111,11 @@ void receiveCallback(const esp_now_recv_info_t *info, const uint8_t *data, int d
 
   Serial.printf("Received message from: %s - %s\n", macStr, buffer);
 
-  if (strcmp("success", buffer) == 0) {
+  if (strcmp("correct", buffer) == 0) {
     pendingStop = true;
     isPlaying = false;
+  } else if(strcmp("fail", buffer) == 0) {
+    return;
   } else {
     isPlaying = true;
     char *token = strtok(buffer, ",");
@@ -118,9 +126,12 @@ void receiveCallback(const esp_now_recv_info_t *info, const uint8_t *data, int d
     mode   = m;
     volume = v;
     isMe   = (ID == who);
+    answer = who;
     pendingMode = mode;
     pendingVol  = volume;
     pendingStart = true;   // loop()에서 startRound 실행
+    vibISRFlag = false;
+    delay(500);
   }
 }
 
@@ -155,6 +166,7 @@ void broadcast(const String &message) {
                                   message.length());
   if (result == ESP_OK) {
     Serial.println("Broadcast message success");
+    Serial.println(message);
   } else if (result == ESP_ERR_ESPNOW_NOT_INIT) {
     Serial.println("ESPNOW not Init.");
   } else if (result == ESP_ERR_ESPNOW_ARG) {
@@ -200,10 +212,12 @@ void stopRound(int mode) {
 
 // start
 void startMode2(int volume) {
-  uint32_t c = randomColor();
-  neopixelAll(c);
-
-  firstSection();
+  if(isMe) {
+    uint32_t c = randomColor();
+    neopixelAll(c);
+    firstSection();
+  }
+  
   // if (!wav || !file || !out) return;
   // if (!wav->isRunning()) {
   //   delete file;
@@ -261,6 +275,24 @@ void setup() {
   Serial.begin(115200);
   delay(100);
 
+  // // WiFi (STA) - AP 연결 (WebSocket용 + ESP-NOW 공존)
+  // WiFi.mode(WIFI_STA);
+  // WiFi.setSleep(false);
+  // WiFiMulti.addAP(WIFI_SSID, WIFI_PASS);
+  // Serial.print("Connecting WiFi");
+  // while (WiFiMulti.run() != WL_CONNECTED) {
+  //   Serial.print(".");
+  //   delay(500);
+  // }
+
+  // Wi‑Fi를 STA로 고정 (중요)
+  WiFi.persistent(false);
+  WiFi.mode(WIFI_STA);
+  WiFi.disconnect(false, false); // 불필요한 AP 연결 시도 방지
+
+  Serial.println("\nWiFi connected: " + WiFi.localIP().toString());
+  Serial.println("HUB MAC: " + WiFi.macAddress());
+
   // NeoPixel
   ring.begin();
   ring.setBrightness(80); // 필요 시 0~255 조절
@@ -269,11 +301,6 @@ void setup() {
   // Vibration
   pinMode(VIB_PIN, INPUT); // 모듈 DO가 기본 HIGH/LOW 출력
   attachInterrupt(digitalPinToInterrupt(VIB_PIN), onVibrationISR, RISING);
-
-  // Wi‑Fi를 STA로 고정 (중요)
-  WiFi.persistent(false);
-  WiFi.mode(WIFI_STA);
-  WiFi.disconnect(false, false); // 불필요한 AP 연결 시도 방지
   
   // ESP-NOW 초기화 
   if (esp_now_init() == ESP_OK) {
@@ -327,6 +354,7 @@ void loop() {
   // }
   if (pendingStop) {
     pendingStop = false;
+    isPlaying = false;
     stopRound(mode);
   }
   if (pendingStart) {
@@ -337,8 +365,8 @@ void loop() {
     vibISRFlag = false;
     if(isMe) {
       isMe = false;
-      broadcast("success");
-      stopRound(mode);
+      pendingStop = true;
+      broadcast("correct");
     } else {
       broadcast("fail");    
     }
