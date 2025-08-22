@@ -4,12 +4,12 @@
 #include <WebSocketsServer.h>
 #include <Adafruit_NeoPixel.h>
 #include <esp_now.h>
-#include <FS.h>
-#include <SD.h>
-#include <SPI.h>
-#include "AudioFileSourceSD.h"
-#include "AudioGeneratorWAV.h"
-#include "AudioOutputI2S.h"
+// #include <FS.h>
+// #include <SD.h>
+// #include <SPI.h>
+// #include "AudioFileSourceSD.h"
+// #include "AudioGeneratorWAV.h"
+// #include "AudioOutputI2S.h"
 
 
 WiFiMulti WiFiMulti;
@@ -34,9 +34,10 @@ int mode = 0;
 
 #define SD_CS 5  // your SD card CS pin
 
-AudioGeneratorWAV *wav;
-AudioFileSourceSD *file;
-AudioOutputI2S *out;
+// AudioGeneratorWAV *wav;
+// AudioFileSourceSD *file;
+// AudioOutputI2S *out;
+const int buzzerPin = 25;
 
 //neopixel
 uint32_t randomColor() {
@@ -72,11 +73,6 @@ bool isME = false;
 int mode = 0;
 int volume = 0;
 int failCnt = 0;
-
-bool     mode1Active = false;
-uint16_t mode1TotalRounds = 0;
-uint16_t mode1CurrentRound = 0;
-bool     mode1ReportedThisRound = false; // 이 라운드에서 정답 보고 했는지
 
 
 void startRound(int mode, int volume) {
@@ -122,7 +118,8 @@ void startMode1(int volume) {
 void startMode2(int volume) {
   uint32_t c = randomColor();
   neopixelAll(c);
-  wav->begin(file, out);
+  // wav->begin(file, out);
+  firstSection();
 }
 
 void stopMode1() {
@@ -131,9 +128,10 @@ void stopMode1() {
 
 void stopMode2() {
   neopixelOff();
-  if(wav->isRunning()) {
-    wav->stop();
-  }
+  // if(wav->isRunning()) {
+  //   wav->stop();
+  // }
+  noTone(buzzerPin);
 }
 
 
@@ -259,6 +257,40 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length
   }
 }
 
+void beep(int note, int duration)
+{
+  tone(buzzerPin, note, duration);
+  noTone(buzzerPin);
+  delay(50);
+}
+
+void firstSection()
+{
+  beep(a, 500);
+  beep(a, 500);    
+  beep(a, 500);
+  beep(f, 350);
+  beep(cH, 150);  
+  beep(a, 500);
+  beep(f, 350);
+  beep(cH, 150);
+  beep(a, 650);
+ 
+  delay(500);
+ 
+  beep(eH, 500);
+  beep(eH, 500);
+  beep(eH, 500);  
+  beep(fH, 350);
+  beep(cH, 150);
+  beep(gS, 500);
+  beep(f, 350);
+  beep(cH, 150);
+  beep(a, 650);
+ 
+  delay(500);
+}
+
 void setup() {
   Serial.begin(115200);
   delay(100);
@@ -299,39 +331,40 @@ void setup() {
   webSocket.begin();
   webSocket.onEvent(webSocketEvent);
 
-    // Init SD
-  if (!SD.begin(SD_CS)) {
-    Serial.println("SD init failed!");
-    while (1);
-  }
-  Serial.println("SD init OK.");
+  //   // Init SD
+  // if (!SD.begin(SD_CS)) {
+  //   Serial.println("SD init failed!");
+  //   while (1);
+  // }
+  // Serial.println("SD init OK.");
 
-  // Setup audio output to internal DAC (GPIO25)
-  out = new AudioOutputI2S(
-    0,                                 // I2S 포트 번호(대부분 0)
-    AudioOutputI2S::INTERNAL_DAC,      // <- 여기!
-    8,                                 // DMA 버퍼 개수(기본값 OK)
-    AudioOutputI2S::APLL_DISABLE
-  );
+  // // Setup audio output to internal DAC (GPIO25)
+  // out = new AudioOutputI2S(
+  //   0,                                 // I2S 포트 번호(대부분 0)
+  //   AudioOutputI2S::INTERNAL_DAC,      // <- 여기!
+  //   8,                                 // DMA 버퍼 개수(기본값 OK)
+  //   AudioOutputI2S::APLL_DISABLE
+  // );
 
-  // Open WAV file from SD
-  file = new AudioFileSourceSD("/sound.wav");
-  wav = new AudioGeneratorWAV();
+  // // Open WAV file from SD
+  // file = new AudioFileSourceSD("/sound.wav");
+  // wav = new AudioGeneratorWAV();
 }
 
 
 void loop() {
   webSocket.loop();
-  if (isMe && mode != 1) {
-    if (!wav->isRunning()) {
-      delete file;
-      file = new AudioFileSourceSD("/sound.wav");
-      wav->begin(file, out);
-    } else {
-    if (!wav->loop()) {
-      wav->stop();
-    }
-  }
+  // if (isMe && mode != 1) {
+  //   if (!wav->isRunning()) {
+  //     delete file;
+  //     file = new AudioFileSourceSD("/sound.wav");
+  //     wav->begin(file, out);
+  //   } else {
+  //     if (!wav->loop()) {
+  //         wav->stop();
+  //     }
+  //   }
+  // }
   if (vibISRFlag) {
     vibISRFlag = false;
     if(isMe) {
@@ -345,3 +378,4 @@ void loop() {
     }
   }
 }
+
