@@ -31,7 +31,7 @@ bool isMe = false;
 int mode = 0;
 int volume = 0;
 
-#define SD_CS 5  // your SD card CS pin
+// #define SD_CS 5  // your SD card CS pin
 
 // AudioGeneratorWAV *wav;
 // AudioFileSourceSD *file;
