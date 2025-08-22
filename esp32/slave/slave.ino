@@ -20,12 +20,18 @@ Adafruit_NeoPixel ring(NUM_LEDS, NEOPIXEL_PIN, NEO_GRB + NEO_KHZ800);
 volatile bool vibISRFlag = false;
 volatile uint32_t vibLastMs = 0;
 
+volatile bool pendingStart = false;
+volatile bool pendingStop  = false;
+volatile int  pendingMode  = 0;
+volatile int  pendingVol   = 0;
+volatile bool isPlaying = false;
+
 #define ID 2
 bool isMe = false;
 int mode = 0;
 int volume = 0;
 
-#define SD_CS 5  // your SD card CS pin
+// #define SD_CS 5  // your SD card CS pin
 
 // AudioGeneratorWAV *wav;
 // AudioFileSourceSD *file;
@@ -99,22 +105,22 @@ void receiveCallback(const esp_now_recv_info_t *info, const uint8_t *data, int d
 
   Serial.printf("Received message from: %s - %s\n", macStr, buffer);
 
-  if(strcmp("success", buffer) == 0) {
-    stopRound(mode);
+  if (strcmp("success", buffer) == 0) {
+    pendingStop = true;
+    isPlaying = false;
   } else {
+    isPlaying = true;
     char *token = strtok(buffer, ",");
-    if (token != NULL) {
-      mode = atoi(token);
-      token = strtok(NULL, ",");
-    }
-    if (token != NULL) {
-      volume = atoi(token);   
-      token = strtok(NULL, ",");
-    }
-    if (token != NULL) {
-      isMe = (ID == atoi(token));
-    }
-    startRound(mode, volume);
+    int m=0, v=0, who=0;
+    if (token) { m = atoi(token); token = strtok(NULL, ","); }
+    if (token) { v = atoi(token); token = strtok(NULL, ","); }
+    if (token) { who = atoi(token); }
+    mode   = m;
+    volume = v;
+    isMe   = (ID == who);
+    pendingMode = mode;
+    pendingVol  = volume;
+    pendingStart = true;   // loop()에서 startRound 실행
   }
 }
 
@@ -263,6 +269,11 @@ void setup() {
   // Vibration
   pinMode(VIB_PIN, INPUT); // 모듈 DO가 기본 HIGH/LOW 출력
   attachInterrupt(digitalPinToInterrupt(VIB_PIN), onVibrationISR, RISING);
+
+  // Wi‑Fi를 STA로 고정 (중요)
+  WiFi.persistent(false);
+  WiFi.mode(WIFI_STA);
+  WiFi.disconnect(false, false); // 불필요한 AP 연결 시도 방지
   
   // ESP-NOW 초기화 
   if (esp_now_init() == ESP_OK) {
@@ -314,7 +325,15 @@ void loop() {
   // if(isMe && mode == 2) {
   //   firstSection(); 
   // }
-  if (vibISRFlag) {
+  if (pendingStop) {
+    pendingStop = false;
+    stopRound(mode);
+  }
+  if (pendingStart) {
+    pendingStart = false;
+    startRound(pendingMode, pendingVol);
+  }
+  if (vibISRFlag && isPlaying) {
     vibISRFlag = false;
     if(isMe) {
       isMe = false;

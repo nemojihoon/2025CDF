@@ -28,7 +28,16 @@ Adafruit_NeoPixel ring(NUM_LEDS, NEOPIXEL_PIN, NEO_GRB + NEO_KHZ800);
 volatile bool vibISRFlag = false;
 volatile uint32_t vibLastMs = 0;
 
-#define SD_CS 5  // your SD card CS pin
+volatile bool pendingStop  = false;
+volatile bool isPlaying = false;
+
+#define ID 1
+bool isME = false;
+int mode = 0;
+int volume = 0;
+volatile int failCnt = 0;
+
+// #define SD_CS 5  // your SD card CS pin
 
 // AudioGeneratorWAV *wav;
 // AudioFileSourceSD *file;
@@ -80,16 +89,6 @@ void IRAM_ATTR onVibrationISR() {
   vibISRFlag = true;
 }
 
-///////////////////////
-// === Mode1 State ===
-///////////////////////
-
-#define ID 1
-bool isME = false;
-int mode = 0;
-int volume = 0;
-volatile int failCnt = 0;
-
 
 void startRound(int mode, int volume) {
   switch(mode) {
@@ -107,49 +106,6 @@ void startRound(int mode, int volume) {
     //   break;
   }
 }
-
-void stopRound(int mode) {
-  switch(mode) {
-    case 1:
-      stopMode1();
-      break;
-    case 2:
-      stopMode2();
-      break;
-    // case 3:
-    //   stopMode3();
-    //   break;
-    // case 4:
-    //   stopMode4();
-    //   break;
-  }
-}
-
-// start
-void startMode1(int volume) {
-  uint32_t c = randomColor();
-  neopixelAll(c);
-}
-
-void startMode2(int volume) {
-  uint32_t c = randomColor();
-  neopixelAll(c);
-  // wav->begin(file, out);
-  firstSection();
-}
-
-void stopMode1() {
-  neopixelOff();
-}
-
-void stopMode2() {
-  neopixelOff();
-  // if(wav->isRunning()) {
-  //   wav->stop();
-  // }
-  noTone(buzzerPin);
-}
-
 
 // espnow
 void formatMacAddress(const uint8_t *macAddr, char *buffer, int maxLength) {
@@ -210,7 +166,8 @@ void receiveCallback(const esp_now_recv_info_t *info, const uint8_t *data, int d
   Serial.printf("Received message from: %s - %s\n", macStr, buffer);
 
   if(strcmp("success", buffer) == 0) {
-    stopRound(mode);
+    pendingStop = 
+    isPlaying = false;
     failCnt = 0;
   } else if(strcmp("fail", buffer) == 0) {
     failCnt++;
@@ -221,6 +178,49 @@ void sentCallback(const wifi_tx_info_t *info, esp_now_send_status_t status) {
   Serial.print("[NOW] Last Packet Send Status: ");
   Serial.println(status == ESP_NOW_SEND_SUCCESS ? "Delivery Success" : "Delivery Fail");
 }
+
+void stopRound(int mode) {
+  switch(mode) {
+    case 1:
+      stopMode1();
+      break;
+    case 2:
+      stopMode2();
+      break;
+    // case 3:
+    //   stopMode3();
+    //   break;
+    // case 4:
+    //   stopMode4();
+    //   break;
+  }
+}
+
+// start
+void startMode1(int volume) {
+  uint32_t c = randomColor();
+  neopixelAll(c);
+}
+
+void startMode2(int volume) {
+  uint32_t c = randomColor();
+  neopixelAll(c);
+  // wav->begin(file, out);
+  firstSection();
+}
+
+void stopMode1() {
+  neopixelOff();
+}
+
+void stopMode2() {
+  neopixelOff();
+  // if(wav->isRunning()) {
+  //   wav->stop();
+  // }
+  noTone(buzzerPin);
+}
+
 
 ///////////////////////
 // === WebSocket 이벤트 ===
@@ -256,6 +256,7 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length
       if (token != NULL) {
         isMe = (ID == atoi(token));
       }
+      isPlaying = true;
       startRound(mode, volume);
 
       webSocket.sendTXT(num, "MODE1_ACK|reps=" + String(mode1TotalRounds));
@@ -383,7 +384,11 @@ void loop() {
   //     }
   //   }
   // }
-  if (vibISRFlag) {
+  if (pendingStop) {
+    pendingStop = false;
+    stopRound(mode);
+  }
+  if (vibISRFlag && isPlaying) {
     vibISRFlag = false;
     if(isMe) {
       isMe = false;
