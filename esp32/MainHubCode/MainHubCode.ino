@@ -17,7 +17,7 @@ const char* WIFI_SSID = "302-211";
 const char* WIFI_PASS = "";  // 필요 시 비번
 
 WebSocketsServer webSocket(81);
-unit8_t clientNum;
+uint8_t clientNum = 0;
 
 #define NEOPIXEL_PIN   16      // 데이터핀 (필요시 변경)
 #define NUM_LEDS       12
@@ -27,10 +27,6 @@ Adafruit_NeoPixel ring(NUM_LEDS, NEOPIXEL_PIN, NEO_GRB + NEO_KHZ800);
 #define VIB_DEBOUNCE_MS  1000 // 잡음 방지
 volatile bool vibISRFlag = false;
 volatile uint32_t vibLastMs = 0;
-
-#define ID 2
-bool isMe = false;
-int mode = 0;
 
 #define SD_CS 5  // your SD card CS pin
 
@@ -92,7 +88,7 @@ void IRAM_ATTR onVibrationISR() {
 bool isME = false;
 int mode = 0;
 int volume = 0;
-int failCnt = 0;
+volatile int failCnt = 0;
 
 
 void startRound(int mode, int volume) {
@@ -115,7 +111,7 @@ void startRound(int mode, int volume) {
 void stopRound(int mode) {
   switch(mode) {
     case 1:
-      stopMode1()
+      stopMode1();
       break;
     case 2:
       stopMode2();
@@ -155,9 +151,11 @@ void stopMode2() {
 }
 
 
-///////////////////////
-// === ESP-NOW ===
-///////////////////////
+// espnow
+void formatMacAddress(const uint8_t *macAddr, char *buffer, int maxLength) {
+  snprintf(buffer, maxLength, "%02x:%02x:%02x:%02x:%02x:%02x",
+           macAddr[0], macAddr[1], macAddr[2], macAddr[3], macAddr[4], macAddr[5]);
+}
 
 // 브로드캐스트 피어 등록기
 static bool ensurePeer(const uint8_t addr[6]) {
@@ -171,7 +169,7 @@ static bool ensurePeer(const uint8_t addr[6]) {
 }
 
 // 상태코드까지 출력하는 브로드캐스트
-void nowBroadcast(const String &message) {
+void broadcast(const String &message) {
   const uint8_t bcast[6] = {0xFF,0xFF,0xFF,0xFF,0xFF,0xFF};
   if (!ensurePeer(bcast)) {
     Serial.println("[NOW] Failed to add broadcast peer");
@@ -246,24 +244,24 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length
       msg.trim();
       Serial.printf("[%u] RX: %s\n", num, msg.c_str());
 
-      if (msg.startsWith("MODE1_START")) {
-        char *token = strtok(msg, ",");
-        if (token != NULL) {
-          mode = atoi(token);
-          token = strtok(NULL, ",");
-        }
-        if (token != NULL) {
-          volume = atoi(token);   
-          token = strtok(NULL, ",");
-        }
-        if (token != NULL) {
-          isMe = (ID == atoi(token));
-        }
-        startRound(mode, volume);
+      char *token = strtok(msg.c_str(), ",");
+      if (token != NULL) {
+        mode = atoi(token);
+        token = strtok(NULL, ",");
+      }
+      if (token != NULL) {
+        volume = atoi(token);   
+        token = strtok(NULL, ",");
+      }
+      if (token != NULL) {
+        isMe = (ID == atoi(token));
+      }
+      startRound(mode, volume);
 
-        webSocket.sendTXT(num, "MODE1_ACK|reps=" + String(mode1TotalRounds));
-        mode1StartRound(num);
-      } else if(msg == "LED_ON") {
+      webSocket.sendTXT(num, "MODE1_ACK|reps=" + String(mode1TotalRounds));
+      mode1StartRound(num);
+        
+      if(msg == "LED_ON") {
         neopixelAll(ring.Color(255,255,255)); 
         webSocket.sendTXT(num, "LED_STATE:1"); 
       } else if(msg == "LED_OFF") {
