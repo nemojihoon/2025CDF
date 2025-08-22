@@ -24,12 +24,12 @@ unit8_t clientNum;
 Adafruit_NeoPixel ring(NUM_LEDS, NEOPIXEL_PIN, NEO_GRB + NEO_KHZ800);
 
 #define VIB_PIN        4       // 디지털 입력
-#define VIB_DEBOUNCE_MS  1000; // 잡음 방지
+#define VIB_DEBOUNCE_MS  1000 // 잡음 방지
 volatile bool vibISRFlag = false;
 volatile uint32_t vibLastMs = 0;
 
 #define ID 2
-bool isME = false;
+bool isMe = false;
 int mode = 0;
 
 #define SD_CS 5  // your SD card CS pin
@@ -287,7 +287,8 @@ void setup() {
   // ESP-NOW 초기화 
   if (esp_now_init() == ESP_OK) {
     Serial.println("ESP-NOW Init Success");
-    esp_now_register_send_cb(sentCallback);  // 수신 콜백 등록 안 함 (요청사항)
+    esp_now_register_send_cb(sentCallback);
+    esp_now_register_recv_cb(receiveCallback);
   } else {
     Serial.println("ESP-NOW Init Failed. Rebooting...");
     delay(2000);
@@ -321,6 +322,16 @@ void setup() {
 
 void loop() {
   webSocket.loop();
+  if (isMe && mode != 1) {
+    if (!wav->isRunning()) {
+      delete file;
+      file = new AudioFileSourceSD("/sound.wav");
+      wav->begin(file, out);
+    } else {
+    if (!wav->loop()) {
+      wav->stop();
+    }
+  }
   if (vibISRFlag) {
     vibISRFlag = false;
     if(isMe) {

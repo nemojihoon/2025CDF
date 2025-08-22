@@ -175,12 +175,18 @@ void stopRound(int mode) {
 void startMode2(int volume) {
   uint32_t c = randomColor();
   neopixelAll(c);
-  wav->begin(file, out);
+
+  if (!wav || !file || !out) return;
+  if (!wav->isRunning()) {
+    delete file;
+    file = new AudioFileSourceSD("/sound.wav");
+    wav->begin(file, out);
+  }
 }
 
 void stopMode2() {
   neopixelOff();
-  if(wav->isRunning()) {
+  if(wav && wav->isRunning()) {
     wav->stop();
   }
 }
@@ -201,7 +207,8 @@ void setup() {
   // ESP-NOW 초기화 
   if (esp_now_init() == ESP_OK) {
     Serial.println("ESP-NOW Init Success");
-    esp_now_register_send_cb(sentCallback);  // 수신 콜백 등록 안 함 (요청사항)
+    esp_now_register_send_cb(sentCallback);
+    esp_now_register_recv_cb(receiveCallback);
   } else {
     Serial.println("ESP-NOW Init Failed. Rebooting...");
     delay(2000);
@@ -233,8 +240,16 @@ void setup() {
 
 void loop() {
   // 진동 발생 처리 (ISR 플래그 폴링)
-  if(!wav->loop() && isMe) {
-    wav->begin(file, out);
+  if (isMe) {
+    if (!wav->isRunning()) {
+      delete file;
+      file = new AudioFileSourceSD("/sound.wav");
+      wav->begin(file, out);
+    } else {
+      if (!wav->loop()) {
+        wav->stop();
+      }
+    }
   }
   if (vibISRFlag) {
     vibISRFlag = false;
