@@ -145,7 +145,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // 라운드 시작 패킷 전송: "mode,volume,target(1~4)"
   function sendGameStart(mode, volume) {
-    const parts = [mode, volume, Math.floor(Math.random() * 4) + 1];
+    const parts = [mode, volume, Math.floor(Math.random() * 2) + 1]; ////// 정답 지정해주는 RANDOM 함수
     safeSend(parts.join(","));
   }
 
@@ -187,7 +187,7 @@ async function repeatRound(mode, volume, totalRounds) {
   while (curr < totalRounds) {
     try {
       // 예: "CORRECT,4"
-      const msg = await waitForMessage(socket, isCorrect, 10000);
+      const msg = await waitForMessage(socket, isCorrect, 0);
       const text = String(msg).trim();
       const attempts = parseInt(text.split(",")[1], 10); // 숫자 보장
 
@@ -208,7 +208,7 @@ async function repeatRound(mode, volume, totalRounds) {
       break;
     }
   }
-
+  console.log("Set Ended!!");
   // 세션 저장 & 즉시 갱신
   if (results.length) {
     saveGameResultActual(mode, results);
@@ -298,7 +298,7 @@ async function repeatRound(mode, volume, totalRounds) {
 
       alert(`[Sound&Light 실행] 라운드:${rounds}, 밝기:${brightness}, 음량:${volume}%`);
       // 허브가 밝기를 쓰는 경우 유지
-      safeSend(`MODE2_RUN|rounds=${rounds}|brightness=${brightness}|volume=${volume}`);
+    
 
       // 라운드 진행(일반화 루프)
       try {
@@ -339,7 +339,7 @@ async function repeatRound(mode, volume, totalRounds) {
       const volume = m3VolumeInput ? +m3VolumeInput.value : 80;
 
       alert(`[Only Sound 실행] 라운드:${rounds}, 음량:${volume}%`);
-      safeSend(`MODE3_RUN|rounds=${rounds}|volume=${volume}`);
+
 
       try {
         await repeatRound(3, volume, rounds);
@@ -380,7 +380,7 @@ async function repeatRound(mode, volume, totalRounds) {
       const volume = m4VolumeInput ? +m4VolumeInput.value : 80;
 
       alert(`[Many Sound 실행] 라운드:${rounds}, 음량:${volume}%`);
-      safeSend(`MODE4_RUN|rounds=${rounds}|volume=${volume}`);
+     
 
       try {
         await repeatRound(4, volume, rounds);

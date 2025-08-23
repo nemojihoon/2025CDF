@@ -30,11 +30,14 @@ volatile uint32_t vibLastMs = 0;
 
 volatile bool pendingStop  = false;
 volatile bool isPlaying = false;
+volatile bool bcastAnswer = false;
 
 #define ID 1
-bool isME = false;
+bool isMe = false;
 int mode = 0;
 int volume = 0;
+int answer = 0;
+
 volatile int failCnt = 0;
 
 // #define SD_CS 5  // your SD card CS pin
@@ -87,6 +90,7 @@ void IRAM_ATTR onVibrationISR() {
   if (now - vibLastMs < VIB_DEBOUNCE_MS) return;
   vibLastMs = now;
   vibISRFlag = true;
+  Serial.println("interrupt");
 }
 
 
@@ -165,10 +169,9 @@ void receiveCallback(const esp_now_recv_info_t *info, const uint8_t *data, int d
 
   Serial.printf("Received message from: %s - %s\n", macStr, buffer);
 
-  if(strcmp("success", buffer) == 0) {
-    pendingStop = 
+  if(strcmp("correct", buffer) == 0) {
+    pendingStop = true;
     isPlaying = false;
-    failCnt = 0;
   } else if(strcmp("fail", buffer) == 0) {
     failCnt++;
   }
@@ -203,10 +206,14 @@ void startMode1(int volume) {
 }
 
 void startMode2(int volume) {
-  uint32_t c = randomColor();
-  neopixelAll(c);
-  // wav->begin(file, out);
-  firstSection();
+  if(isMe) {
+    uint32_t c = randomColor();
+    neopixelAll(c);
+    // wav->begin(file, out);
+    firstSection();
+
+  }
+  
 }
 
 void stopMode1() {
@@ -244,7 +251,10 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length
       msg.trim();
       Serial.printf("[%u] RX: %s\n", num, msg.c_str());
 
-      char *token = strtok(msg.c_str(), ",");
+      char buf[64];  // 버퍼 크기는 상황에 맞게
+      msg.toCharArray(buf, sizeof(buf));
+
+      char *token = strtok(buf, ",");
       if (token != NULL) {
         mode = atoi(token);
         token = strtok(NULL, ",");
@@ -255,24 +265,18 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length
       }
       if (token != NULL) {
         isMe = (ID == atoi(token));
+        answer = atoi(token);        
       }
-      isPlaying = true;
-      startRound(mode, volume);
+      Serial.printf("mode: %d\n", mode);
+      Serial.printf("volume: %d\n", volume);
+      Serial.printf("answer: %d\n", answer);
 
-      webSocket.sendTXT(num, "MODE1_ACK|reps=" + String(mode1TotalRounds));
-      mode1StartRound(num);
-        
-      if(msg == "LED_ON") {
-        neopixelAll(ring.Color(255,255,255)); 
-        webSocket.sendTXT(num, "LED_STATE:1"); 
-      } else if(msg == "LED_OFF") {
-        neopixelOff();    
-        webSocket.sendTXT(num, "LED_STATE:0"); 
-      } else {
-        webSocket.sendTXT(num, "UNKNOWN_CMD");
-      }      
+      isPlaying = true;
+      bcastAnswer = true;
+      startRound(mode, volume);
       break;
     }
+
   }
 }
 
@@ -384,20 +388,30 @@ void loop() {
   //     }
   //   }
   // }
+  if (bcastAnswer) {
+    bcastAnswer = false;
+    String msg = String(mode) + "," + String(volume) + "," + String(answer);
+    broadcast(msg);
+  }
+
   if (pendingStop) {
     pendingStop = false;
     stopRound(mode);
+    String msg = "CORRECT," + String(failCnt+1);
+    webSocket.sendTXT(clientNum, msg);
+    failCnt = 0;
   }
   if (vibISRFlag && isPlaying) {
     vibISRFlag = false;
     if(isMe) {
       isMe = false;
-      broadcast("success");
+      pendingStop = true;
+      isPlaying = false;
+      broadcast("correct");
       stopRound(mode);
-      String msg = "success," + String(failCnt+1);
-      webSocket.sendTXT(clientNum, msg);
     } else {
       failCnt++;
+      Serial.println(failCnt);
     }
   }
 }
