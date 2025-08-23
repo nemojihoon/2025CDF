@@ -21,7 +21,7 @@
 Adafruit_NeoPixel ring(NUM_LEDS, NEOPIXEL_PIN, NEO_GRB + NEO_KHZ800);
 
 #define VIB_PIN        4       // 디지털 입력
-#define VIB_DEBOUNCE_MS  1000 // 잡음 방지
+#define VIB_DEBOUNCE_MS  2000 // 잡음 방지
 volatile bool vibISRFlag = false;
 volatile uint32_t vibLastMs = 0;
 
@@ -115,7 +115,6 @@ void receiveCallback(const esp_now_recv_info_t *info, const uint8_t *data, int d
     pendingStop = true;
     isPlaying = false;
   } else if(strcmp("fail", buffer) == 0) {
-    return;
   } else {
     isPlaying = true;
     char *token = strtok(buffer, ",");
@@ -131,7 +130,6 @@ void receiveCallback(const esp_now_recv_info_t *info, const uint8_t *data, int d
     pendingVol  = volume;
     pendingStart = true;   // loop()에서 startRound 실행
     vibISRFlag = false;
-    delay(500);
   }
 }
 
@@ -179,6 +177,43 @@ void broadcast(const String &message) {
     Serial.println("Peer not found.");
   } else {
     Serial.println("Unknown error");
+  }
+}
+
+void unicast(const uint8_t addr[6], const String& message) {
+  // Guard: empty message ok but not recommended
+  if (!addr) {
+    Serial.println("Invalid MAC pointer");
+    return;
+  }
+
+  // Make sure peer exists (channel/encryption handled inside ensurePeer)
+  if (!ensurePeer(addr)) {
+    Serial.println("Failed to add/find peer");
+    return;
+  }
+
+  // Send the payload
+  esp_err_t result = esp_now_send(addr,
+                                  (const uint8_t*)message.c_str(),
+                                  message.length());
+
+  // Error handling consistent with broadcast()
+  if (result == ESP_OK) {
+    Serial.println("Unicast message success");
+    Serial.println(message);
+  } else if (result == ESP_ERR_ESPNOW_NOT_INIT) {
+    Serial.println("ESPNOW not Init.");
+  } else if (result == ESP_ERR_ESPNOW_ARG) {
+    Serial.println("Invalid Argument");
+  } else if (result == ESP_ERR_ESPNOW_INTERNAL) {
+    Serial.println("Internal Error");
+  } else if (result == ESP_ERR_ESPNOW_NO_MEM) {
+    Serial.println("ESP_ERR_ESPNOW_NO_MEM");
+  } else if (result == ESP_ERR_ESPNOW_NOT_FOUND) {
+    Serial.println("Peer not found.");
+  } else {
+    Serial.printf("Unknown error (%d)\n", (int)result);
   }
 }
 
@@ -363,6 +398,7 @@ void loop() {
   }
   if (vibISRFlag && isPlaying) {
     vibISRFlag = false;
+    delay(500);
     if(isMe) {
       isMe = false;
       pendingStop = true;
@@ -371,4 +407,5 @@ void loop() {
       broadcast("fail");    
     }
   }
+  delay(500);
 }
