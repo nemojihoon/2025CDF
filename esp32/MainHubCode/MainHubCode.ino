@@ -24,7 +24,7 @@ uint8_t clientNum = 0;
 Adafruit_NeoPixel ring(NUM_LEDS, NEOPIXEL_PIN, NEO_GRB + NEO_KHZ800);
 
 #define VIB_PIN        4       // 디지털 입력
-#define VIB_DEBOUNCE_MS  1000 // 잡음 방지
+#define VIB_DEBOUNCE_MS  2000 // 잡음 방지
 volatile bool vibISRFlag = false;
 volatile uint32_t vibLastMs = 0;
 
@@ -174,6 +174,7 @@ void receiveCallback(const esp_now_recv_info_t *info, const uint8_t *data, int d
     isPlaying = false;
   } else if(strcmp("fail", buffer) == 0) {
     failCnt++;
+    Serial.println(failCnt);
   }
 }
 
@@ -403,6 +404,7 @@ void loop() {
   }
   if (vibISRFlag && isPlaying) {
     vibISRFlag = false;
+    delay(500);
     if(isMe) {
       isMe = false;
       pendingStop = true;
@@ -414,5 +416,6 @@ void loop() {
       Serial.println(failCnt);
     }
   }
+  delay(500);
 }
 

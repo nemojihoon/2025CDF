@@ -145,7 +145,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // 라운드 시작 패킷 전송: "mode,volume,target(1~4)"
   function sendGameStart(mode, volume) {
-    const parts = [mode, volume, Math.floor(Math.random() * 2) + 1]; ////// 정답 지정해주는 RANDOM 함수
+    const parts = [mode,volume,1];
+    if(mode > 1) parts[2] = Math.floor(Math.random() * 2) + 1; ////// 정답 지정해주는 RANDOM 함수
     safeSend(parts.join(","));
   }
 
