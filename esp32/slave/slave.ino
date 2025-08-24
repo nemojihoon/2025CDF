@@ -15,6 +15,16 @@
 // const char* WIFI_SSID = "302-211";
 // const char* WIFI_PASS = "";  // 필요 시 비번
 
+// Store 5x6 MAC table (index 0 unused; use 1..4)
+const uint8_t PEERS[5][6] = {
+  {0x00,0x00,0x00,0x00,0x00,0x00},          // [0] unused
+  {0x3C,0x8A,0x1F,0x0B,0x91,0xC0},          // [1] 3C:8A:1F:0B:91:C0
+  {0x80,0xF3,0xDA,0xAC,0xE3,0xB4},          // [2] 80:F3:DA:AC:E3:B4
+  {0x00,0x00,0x00,0x00,0x00,0x00},          // [3]
+  {0x00,0x00,0x00,0x00,0x00,0x00}           // [4]
+}; 
+
+
 
 #define NEOPIXEL_PIN   16      // 데이터핀 (필요시 변경)
 #define NUM_LEDS       12
@@ -389,7 +399,6 @@ void loop() {
   // }
   if (pendingStop) {
     pendingStop = false;
-    isPlaying = false;
     stopRound(mode);
   }
   if (pendingStart) {
@@ -402,9 +411,12 @@ void loop() {
     if(isMe) {
       isMe = false;
       pendingStop = true;
-      broadcast("correct");
+      isPlaying = false;
+      // broadcast("correct");
+      unicast(PEERS[1], "correct");
     } else {
-      broadcast("fail");    
+      // broadcast("fail");
+      unicast(PEERS[1], "fail");
     }
   }
   delay(500);

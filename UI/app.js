@@ -191,6 +191,7 @@ async function repeatRound(mode, volume, totalRounds) {
       const msg = await waitForMessage(socket, isCorrect, 0);
       const text = String(msg).trim();
       const attempts = parseInt(text.split(",")[1], 10); // 숫자 보장
+      console.log("correct", attempts);
 
       const elapsedSec = Math.max(0, Math.round((performance.now() - startTime) / 1000));
       const roundNum = curr + 1;

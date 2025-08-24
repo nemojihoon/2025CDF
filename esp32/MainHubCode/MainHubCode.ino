@@ -19,6 +19,14 @@ const char* WIFI_PASS = "";  // 필요 시 비번
 WebSocketsServer webSocket(81);
 uint8_t clientNum = 0;
 
+const uint8_t PEERS[5][6] = {
+  {0x00,0x00,0x00,0x00,0x00,0x00},          // [0] unused
+  {0x3C,0x8A,0x1F,0x0B,0x91,0xC0},          // [1] 3C:8A:1F:0B:91:C0
+  {0x80,0xF3,0xDA,0xAC,0xE3,0xB4},          // [2] 80:F3:DA:AC:E3:B4
+  {0x00,0x00,0x00,0x00,0x00,0x00},          // [3]
+  {0x00,0x00,0x00,0x00,0x00,0x00}           // [4]
+}; 
+
 #define NEOPIXEL_PIN   16      // 데이터핀 (필요시 변경)
 #define NUM_LEDS       12
 Adafruit_NeoPixel ring(NUM_LEDS, NEOPIXEL_PIN, NEO_GRB + NEO_KHZ800);
@@ -117,6 +125,36 @@ void formatMacAddress(const uint8_t *macAddr, char *buffer, int maxLength) {
            macAddr[0], macAddr[1], macAddr[2], macAddr[3], macAddr[4], macAddr[5]);
 }
 
+void receiveCallback(const esp_now_recv_info_t *info, const uint8_t *data, int dataLen) {
+  // guard
+  if (!info || !data || dataLen <= 0) return;
+
+  // clamp length and ensure NUL
+  char buffer[ESP_NOW_MAX_DATA_LEN + 1];
+  int msgLen = min(ESP_NOW_MAX_DATA_LEN, dataLen);
+  strncpy(buffer, (const char *)data, msgLen);
+  buffer[msgLen] = 0;
+
+  // format source MAC (info->src_addr)
+  char macStr[18] = {0};
+  formatMacAddress(info->src_addr, macStr, sizeof(macStr));
+
+  Serial.printf("Received message from: %s - %s\n", macStr, buffer);
+
+  if(strcmp("correct", buffer) == 0) {
+    pendingStop = true;
+    isPlaying = false;
+  } else if(strcmp("fail", buffer) == 0) {
+    failCnt++;
+    Serial.println(failCnt);
+  }
+}
+
+void sentCallback(const wifi_tx_info_t *info, esp_now_send_status_t status) {
+  Serial.print("[NOW] Last Packet Send Status: ");
+  Serial.println(status == ESP_NOW_SEND_SUCCESS ? "Delivery Success" : "Delivery Fail");
+}
+
 // 브로드캐스트 피어 등록기
 static bool ensurePeer(const uint8_t addr[6]) {
   if (esp_now_is_peer_exist(addr)) return true;
@@ -153,34 +191,41 @@ void broadcast(const String &message) {
   }
 }
 
-void receiveCallback(const esp_now_recv_info_t *info, const uint8_t *data, int dataLen) {
-  // guard
-  if (!info || !data || dataLen <= 0) return;
-
-  // clamp length and ensure NUL
-  char buffer[ESP_NOW_MAX_DATA_LEN + 1];
-  int msgLen = min(ESP_NOW_MAX_DATA_LEN, dataLen);
-  strncpy(buffer, (const char *)data, msgLen);
-  buffer[msgLen] = 0;
-
-  // format source MAC (info->src_addr)
-  char macStr[18] = {0};
-  formatMacAddress(info->src_addr, macStr, sizeof(macStr));
-
-  Serial.printf("Received message from: %s - %s\n", macStr, buffer);
-
-  if(strcmp("correct", buffer) == 0) {
-    pendingStop = true;
-    isPlaying = false;
-  } else if(strcmp("fail", buffer) == 0) {
-    failCnt++;
-    Serial.println(failCnt);
+void unicast(const uint8_t addr[6], const String& message) {
+  // Guard: empty message ok but not recommended
+  if (!addr) {
+    Serial.println("Invalid MAC pointer");
+    return;
   }
-}
 
-void sentCallback(const wifi_tx_info_t *info, esp_now_send_status_t status) {
-  Serial.print("[NOW] Last Packet Send Status: ");
-  Serial.println(status == ESP_NOW_SEND_SUCCESS ? "Delivery Success" : "Delivery Fail");
+  // Make sure peer exists (channel/encryption handled inside ensurePeer)
+  if (!ensurePeer(addr)) {
+    Serial.println("Failed to add/find peer");
+    return;
+  }
+
+  // Send the payload
+  esp_err_t result = esp_now_send(addr,
+                                  (const uint8_t*)message.c_str(),
+                                  message.length());
+
+  // Error handling consistent with broadcast()
+  if (result == ESP_OK) {
+    Serial.println("Unicast message success");
+    Serial.println(message);
+  } else if (result == ESP_ERR_ESPNOW_NOT_INIT) {
+    Serial.println("ESPNOW not Init.");
+  } else if (result == ESP_ERR_ESPNOW_ARG) {
+    Serial.println("Invalid Argument");
+  } else if (result == ESP_ERR_ESPNOW_INTERNAL) {
+    Serial.println("Internal Error");
+  } else if (result == ESP_ERR_ESPNOW_NO_MEM) {
+    Serial.println("ESP_ERR_ESPNOW_NO_MEM");
+  } else if (result == ESP_ERR_ESPNOW_NOT_FOUND) {
+    Serial.println("Peer not found.");
+  } else {
+    Serial.printf("Unknown error (%d)\n", (int)result);
+  }
 }
 
 void stopRound(int mode) {
@@ -409,8 +454,8 @@ void loop() {
       isMe = false;
       pendingStop = true;
       isPlaying = false;
-      broadcast("correct");
-      stopRound(mode);
+      // broadcast("correct");
+      unicast(PEERS[1], "correct");
     } else {
       failCnt++;
       Serial.println(failCnt);
