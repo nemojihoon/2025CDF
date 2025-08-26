@@ -71,7 +71,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // 조건을 만족하는 "다음 1개의 메시지"를 기다리는 헬퍼
   function waitForMessage(ws, predicate = () => true, timeoutMs = 0) {
-    return new Promise((resolve, reject) => { 
+    return new Promise((resolve, reject) => {
       //<<<<<<<<오류 관리========
       if (!ws || ws.readyState !== WebSocket.OPEN) {
         reject(new Error("WebSocket not open"));
@@ -145,8 +145,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // 라운드 시작 패킷 전송: "mode,volume,target(1~4)"
   function sendGameStart(mode, volume) {
-    const parts = [mode,volume,1];
-    if(mode > 1) parts[2] = Math.floor(Math.random() * 2) + 1; ////// 정답 지정해주는 RANDOM 함수
+    const parts = [mode, volume, 1];
+    if (mode > 1) parts[2] = Math.floor(Math.random() * 2) + 1; ////// 정답 지정해주는 RANDOM 함수
     safeSend(parts.join(","));
   }
 
@@ -169,56 +169,54 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-// 라운드 N번 반복: 항상 "CORRECT,<시도횟수>"를 기다림
-async function repeatRound(mode, volume, totalRounds) {
-  if (!socket || socket.readyState !== WebSocket.OPEN) {
-    throw new Error("WebSocket 미연결");
-  }
+  // 라운드 N번 반복: 항상 "CORRECT,<시도횟수>"를 기다림
+  async function repeatRound(mode, volume, totalRounds) {
+    if (!socket || socket.readyState !== WebSocket.OPEN) {
+      throw new Error("WebSocket 미연결");
+    }
 
-  const results = [];
-  let curr = 0;
+    const results = [];
+    let curr = 0;
 
-  // 1라운드 시작
-  sendGameStart(mode, volume);
-  let startTime = performance.now();
+    // 1라운드 시작
+    sendGameStart(mode, volume);
+    let startTime = performance.now();
 
-  // "CORRECT,숫자"만 통과시키는 좁은 조건
-  const isCorrect = (m) => /^CORRECT,\d+$/.test(String(m).trim());
+    const isCorrect = (m) => /^CORRECT,\d+$/.test(String(m).trim());
 
-  while (curr < totalRounds) {
-    try {
-      // 예: "CORRECT,4"
-      const msg = await waitForMessage(socket, isCorrect, 0);
-      const text = String(msg).trim();
-      const attempts = parseInt(text.split(",")[1], 10); // 숫자 보장
-      console.log("correct", attempts);
+    while (curr < totalRounds) {
+      try {
+        const msg = await waitForMessage(socket, isCorrect, 0);
+        const text = String(msg).trim();
+        const attempts = parseInt(text.split(",")[1], 10); // 숫자 보장
+        console.log("correct", attempts);
 
-      const elapsedSec = Math.max(0, Math.round((performance.now() - startTime) / 1000));
-      const roundNum = curr + 1;
+        const elapsedSec = Math.max(0, Math.round((performance.now() - startTime) / 1000));
+        const roundNum = curr + 1;
 
-      // 결과 기록
-      results.push({ mode, round: roundNum, time: elapsedSec, attempts });
+        // 결과 기록
+        results.push({ mode, round: roundNum, time: elapsedSec, attempts });
 
-      curr++;
-      if (curr < totalRounds) {
-        // 다음 라운드 시작
-        sendGameStart(mode, volume);
-        startTime = performance.now();
+        curr++;
+        if (curr < totalRounds) {
+          // 다음 라운드 시작
+          sendGameStart(mode, volume);
+          startTime = performance.now();
+        }
+      } catch (e) {
+        console.warn(`라운드 ${curr + 1} 대기 중 타임아웃/에러:`, e.message);
+        break;
       }
-    } catch (e) {
-      console.warn(`라운드 ${curr + 1} 대기 중 타임아웃/에러:`, e.message);
-      break;
+    }
+    console.log("Set Ended!!");
+    // 세션 저장 & 즉시 갱신
+    if (results.length) {
+      saveGameResultActual(mode, results);
+      if (document.getElementById("dataView")?.classList.contains("active")) {
+        renderDataTable();
+      }
     }
   }
-  console.log("Set Ended!!");
-  // 세션 저장 & 즉시 갱신
-  if (results.length) {
-    saveGameResultActual(mode, results);
-    if (document.getElementById("dataView")?.classList.contains("active")) {
-      renderDataTable();
-    }
-  }
-}
 
 
   // 실제 연결 시도
@@ -300,7 +298,7 @@ async function repeatRound(mode, volume, totalRounds) {
 
       alert(`[Sound&Light 실행] 라운드:${rounds}, 밝기:${brightness}, 음량:${volume}%`);
       // 허브가 밝기를 쓰는 경우 유지
-    
+
 
       // 라운드 진행(일반화 루프)
       try {
@@ -382,7 +380,7 @@ async function repeatRound(mode, volume, totalRounds) {
       const volume = m4VolumeInput ? +m4VolumeInput.value : 80;
 
       alert(`[Many Sound 실행] 라운드:${rounds}, 음량:${volume}%`);
-     
+
 
       try {
         await repeatRound(4, volume, rounds);
