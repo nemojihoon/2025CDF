@@ -4,18 +4,13 @@
 #include <WebSocketsServer.h>
 #include <Adafruit_NeoPixel.h>
 #include <esp_now.h>
-// #include <FS.h>
-// #include <SD.h>
-// #include <SPI.h>
-// #include "AudioFileSourceSD.h"
-// #include "AudioGeneratorWAV.h"
-// #include "AudioOutputI2S.h"
+#include <DFRobotDFPlayerMini.h>
 
 // WiFiMulti WiFiMulti;
 // const char* WIFI_SSID = "302-211";
 // const char* WIFI_PASS = "";  // 필요 시 비번
 
-// Store 5x6 MAC table (index 0 unused; use 1..4)
+// MAC table
 const uint8_t PEERS[5][6] = {
   {0x00,0x00,0x00,0x00,0x00,0x00},          // [0] unused
   {0x3C,0x8A,0x1F,0x0B,0x91,0xC0},          // [1] 3C:8A:1F:0B:91:C0
@@ -24,55 +19,39 @@ const uint8_t PEERS[5][6] = {
   {0x00,0x00,0x00,0x00,0x00,0x00}           // [4]
 }; 
 
-
-
+// neopixel
 #define NEOPIXEL_PIN   16      // 데이터핀 (필요시 변경)
 #define NUM_LEDS       12
 Adafruit_NeoPixel ring(NUM_LEDS, NEOPIXEL_PIN, NEO_GRB + NEO_KHZ800);
 
+//vibration detection
 #define VIB_PIN        4       // 디지털 입력
 #define VIB_DEBOUNCE_MS  2000 // 잡음 방지
 volatile bool vibISRFlag = false;
 volatile uint32_t vibLastMs = 0;
 
+// game state
+#define ID 2
 volatile bool pendingStart = false;
 volatile bool pendingStop  = false;
 volatile int  pendingMode  = 0;
 volatile int  pendingVol   = 0;
 volatile bool isPlaying = false;
-
-#define ID 2
 volatile bool isMe = false;
 volatile int mode = 0;
 volatile int volume = 0;
 volatile int answer = 0;
 
-// #define SD_CS 5  // your SD card CS pin
+// dfplayer
+static const uint8_t TX_PIN = 26; // ESP32 TX to DFPlayer RX
+static const uint8_t RX_PIN = 27; // ESP32 RX from DFPlayer TX
 
-// AudioGeneratorWAV *wav;
-// AudioFileSourceSD *file;
-// AudioOutputI2S *out;
-const int buzzerPin = 25;
+HardwareSerial mp3Serial(2);  // UART2
+DFRobotDFPlayerMini player;
 
-const int c = 261;
-const int d = 294;
-const int e = 329;
-const int f = 349;
-const int g = 391;
-const int gS = 415;
-const int a = 440;
-const int aS = 455;
-const int b = 466;
-const int cH = 523;
-const int cSH = 554;
-const int dH = 587;
-const int dSH = 622;
-const int eH = 659;
-const int fH = 698;
-const int fSH = 740;
-const int gH = 784;
-const int gSH = 830;
-const int aH = 880;
+uint16_t trackNum = 1;
+static const uint32_t kFinishDebounceMs = 150; // debounce for duplicate finish events
+uint32_t lastFinishMs = 0;
 
 //neopixel
 uint32_t randomColor() {
@@ -260,60 +239,20 @@ void startMode2(int volume) {
   if(isMe) {
     uint32_t c = randomColor();
     neopixelAll(c);
-    firstSection();
+    player.volume(constrain((volume * 30) / 100, 0, 30));
+    trackNum = 1;
+    startLoopTrack();
   }
-  
-  // if (!wav || !file || !out) return;
-  // if (!wav->isRunning()) {
-  //   delete file;
-  //   file = new AudioFileSourceSD("/sound.wav");
-  //   wav->begin(file, out);
-  // }
 }
 
 void stopMode2() {
   neopixelOff();
-  // if(wav && wav->isRunning()) {
-  //   wav->stop();
-  // }
-  noTone(buzzerPin);
+  player.stop();
 }
 
-
-void beep(int note, int duration)
-{
-  tone(buzzerPin, note, duration);
-  noTone(buzzerPin);
-  delay(50);
-}
- 
-
-//첫번째 연주에 관한 섹션
-void firstSection()
-{
-  beep(a, 500);
-  beep(a, 500);    
-  beep(a, 500);
-  beep(f, 350);
-  beep(cH, 150);  
-  beep(a, 500);
-  beep(f, 350);
-  beep(cH, 150);
-  beep(a, 650);
- 
-  delay(500);
- 
-  beep(eH, 500);
-  beep(eH, 500);
-  beep(eH, 500);  
-  beep(fH, 350);
-  beep(cH, 150);
-  beep(gS, 500);
-  beep(f, 350);
-  beep(cH, 150);
-  beep(a, 650);
- 
-  delay(500);
+void startLoopTrack() {
+  player.play(trackNum);
+  Serial.printf("Looping track #%u\n", trackNum);
 }
 
 void setup() {
@@ -343,7 +282,7 @@ void setup() {
   ring.setBrightness(80); // 필요 시 0~255 조절
   neopixelOff();
 
-  // Vibration
+  // Vibration ISR
   pinMode(VIB_PIN, INPUT); // 모듈 DO가 기본 HIGH/LOW 출력
   attachInterrupt(digitalPinToInterrupt(VIB_PIN), onVibrationISR, RISING);
   
@@ -358,45 +297,20 @@ void setup() {
     ESP.restart();
   }
 
-  // // Init SD
-  // if (!SD.begin(SD_CS)) {
-  //   Serial.println("SD init failed!");
-  //   while (1);
-  // }
-  // Serial.println("SD init OK.");
+  //dfplayer
+  mp3Serial.begin(9600, SERIAL_8N1, RX_PIN, TX_PIN);
 
-  // // Setup audio output to internal DAC (GPIO25)
-  // out = new AudioOutputI2S(
-  //   0,                                 // I2S 포트 번호(대부분 0)
-  //   AudioOutputI2S::INTERNAL_DAC,      // <- 여기!
-  //   8,                                 // DMA 버퍼 개수(기본값 OK)
-  //   AudioOutputI2S::APLL_DISABLE
-  // );
+  Serial.println("Initializing DFPlayer Mini...");
+  if (!player.begin(mp3Serial)) {
+    Serial.println("DFPlayer init failed! Check wiring and SD card.");
+    while (true) delay(100);
+  }
 
-  // // Open WAV file from SD
-  // file = new AudioFileSourceSD("/sound.wav");
-  // wav = new AudioGeneratorWAV();
-
-  // 난수 시드
-  randomSeed(esp_random());
+  Serial.println("DFPlayer Mini is online.");
+  player.volume(10);
 }
 
 void loop() {
-  // 진동 발생 처리 (ISR 플래그 폴링)
-  // if (isMe) {
-  //   if (!wav->isRunning()) {
-  //     delete file;
-  //     file = new AudioFileSourceSD("/sound.wav");
-  //     wav->begin(file, out);
-  //   } else {
-  //     if (!wav->loop()) {
-  //       wav->stop();
-  //     }
-  //   }
-  // }
-  // if(isMe && mode == 2) {
-  //   firstSection(); 
-  // }
   if (pendingStop) {
     pendingStop = false;
     stopRound(mode);
@@ -405,6 +319,30 @@ void loop() {
     pendingStart = false;
     startRound(pendingMode, pendingVol);
   }
+
+  if (player.available() && isPlaying) {
+    uint8_t type = player.readType();
+    int value    = player.read();
+
+    switch (type) {
+      case DFPlayerPlayFinished: {
+        uint32_t now = millis();
+        if (now - lastFinishMs > kFinishDebounceMs) {
+          Serial.printf("Track finished: %d -> restarting\n", value);
+          lastFinishMs = now;
+          delay(50);
+          startLoopTrack();
+        }
+        break;
+      }
+      case DFPlayerError:
+        Serial.printf("DFPlayer Error: %d\n", value);
+        break;
+      default:
+        break;
+    }
+  }
+
   if (vibISRFlag && isPlaying) {
     vibISRFlag = false;
     delay(500);
@@ -419,5 +357,5 @@ void loop() {
       unicast(PEERS[1], "fail");
     }
   }
-  delay(500);
+  delay(50);
 }
