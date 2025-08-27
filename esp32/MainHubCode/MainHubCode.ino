@@ -13,14 +13,6 @@ const char* WIFI_PASS = "";  // 필요 시 비번
 WebSocketsServer webSocket(81);
 uint8_t clientNum = 0;
 
-// === HUB index (we decided [1] is Hub) ===
-#define HUB_IDX 1
-
-// link-level send result flags (from send-callback)
-volatile bool g_lastSendDone = false;
-volatile bool g_lastSendOk   = false;
-
-
 //MAC table
 const uint8_t PEERS[5][6] = {
   {0x00,0x00,0x00,0x00,0x00,0x00},          // [0] unused
@@ -37,7 +29,7 @@ Adafruit_NeoPixel ring(NUM_LEDS, NEOPIXEL_PIN, NEO_GRB + NEO_KHZ800);
 
 //vibration
 #define VIB_PIN        4       // 디지털 입력
-#define VIB_DEBOUNCE_MS  1500 // 잡음 방지
+#define VIB_DEBOUNCE_MS  2000 // 잡음 방지
 volatile bool vibISRFlag = false;
 volatile uint32_t vibLastMs = 0;
 
@@ -59,7 +51,7 @@ static const uint8_t RX_PIN = 27; // ESP32 RX from DFPlayer TX
 HardwareSerial mp3Serial(2);  // UART2
 DFRobotDFPlayerMini player;
 
-uint16_t trackNum = 0;
+uint16_t trackNum = 1;
 static const uint32_t kFinishDebounceMs = 150; // debounce for duplicate finish events
 uint32_t lastFinishMs = 0;
 
@@ -94,6 +86,36 @@ void formatMacAddress(const uint8_t *macAddr, char *buffer, int maxLength) {
            macAddr[0], macAddr[1], macAddr[2], macAddr[3], macAddr[4], macAddr[5]);
 }
 
+void receiveCallback(const esp_now_recv_info_t *info, const uint8_t *data, int dataLen) {
+  // guard
+  if (!info || !data || dataLen <= 0) return;
+
+  // clamp length and ensure NUL
+  char buffer[ESP_NOW_MAX_DATA_LEN + 1];
+  int msgLen = min(ESP_NOW_MAX_DATA_LEN, dataLen);
+  strncpy(buffer, (const char *)data, msgLen);
+  buffer[msgLen] = 0;
+
+  // format source MAC (info->src_addr)
+  char macStr[18] = {0};
+  formatMacAddress(info->src_addr, macStr, sizeof(macStr));
+
+  Serial.printf("Received message from: %s - %s\n", macStr, buffer);
+
+  if(strcmp("CORRECT", buffer) == 0) {
+    pendingStop = true;
+    isPlaying = false;
+  } else if(strcmp("fail", buffer) == 0) {
+    failCnt++;
+    Serial.println(failCnt);
+  }
+}
+
+void sentCallback(const wifi_tx_info_t *info, esp_now_send_status_t status) {
+  Serial.print("[NOW] Last Packet Send Status: ");
+  Serial.println(status == ESP_NOW_SEND_SUCCESS ? "Delivery Success" : "Delivery Fail");
+}
+
 // 브로드캐스트 피어 등록기
 static bool ensurePeer(const uint8_t addr[6]) {
   if (esp_now_is_peer_exist(addr)) return true;
@@ -103,18 +125,6 @@ static bool ensurePeer(const uint8_t addr[6]) {
   peerInfo.channel = 0;             // 0 = 현재 채널
   peerInfo.encrypt = false;         // LMK 미사용
   return (esp_now_add_peer(&peerInfo) == ESP_OK);
-}
-
-// Call this in setup() after esp_now_init()
-void registerAllPeers() {
-  for (int i = 1; i <= 4; ++i) {     // [1]~[4]
-    bool nonzero = false;
-    for (int b = 0; b < 6; ++b) {
-      if (PEERS[i][b] != 0x00) { nonzero = true; break; }
-    }
-    if (!nonzero) continue;
-    ensurePeer(PEERS[i]);
-  }
 }
 
 // 상태코드까지 출력하는 브로드캐스트
@@ -179,102 +189,6 @@ void unicast(const uint8_t addr[6], const String& message) {
   }
 }
 
-// Ensure peer then send with light retry
-bool sendSafe(const uint8_t addr[6], const uint8_t* data, size_t len) {
-  if (!esp_now_is_peer_exist(addr)) {
-    if (!ensurePeer(addr)) {
-      Serial.println("[NOW] ensurePeer failed");
-      return false;
-    }
-  }
-  esp_err_t err = esp_now_send(addr, data, len);
-
-  // quick retry for transient errors
-  if (err == ESP_ERR_ESPNOW_NOT_FOUND) {
-    if (ensurePeer(addr)) err = esp_now_send(addr, data, len);
-  } else if (err == ESP_ERR_ESPNOW_NO_MEM || err == ESP_ERR_ESPNOW_INTERNAL) {
-    delay(3);
-    err = esp_now_send(addr, data, len);
-  }
-  return (err == ESP_OK);
-}
-
-bool sendWithLinkRetry(const uint8_t addr[6], const String& s, int retries=1, uint32_t timeoutMs=35) {
-  for (int t=0; t<=retries; ++t) {
-    g_lastSendDone = false; g_lastSendOk = false;
-    if (!sendSafe(addr, (const uint8_t*)s.c_str(), s.length())) { delay(2); continue; }
-    uint32_t start = millis();
-    while (!g_lastSendDone && (millis()-start) < timeoutMs) { delay(1); }
-    if (g_lastSendDone && g_lastSendOk) return true;
-    delay(2);
-  }
-  return false;
-}
-
-void receiveCallback(const esp_now_recv_info_t *info, const uint8_t *data, int dataLen) {
-  if (!info || !data || dataLen <= 0) return;
-
-  char buffer[ESP_NOW_MAX_DATA_LEN + 1];
-  int msgLen = min(ESP_NOW_MAX_DATA_LEN, dataLen);
-  strncpy(buffer, (const char *)data, msgLen);
-  buffer[msgLen] = 0;
-
-  char macStr[18] = {0};
-  formatMacAddress(info->src_addr, macStr, sizeof(macStr));
-  Serial.printf("[NOW] RX from %s: %s\n", macStr, buffer);
-
-  char* kind = strtok(buffer, ",");
-  if (!kind) return;
-  char* idStr  = strtok(NULL, ",");
-  char* seqStr = strtok(NULL, ",");
-  int whoId = idStr  ? atoi(idStr)  : 0;
-  uint16_t seq = seqStr ? (uint16_t)atoi(seqStr) : 0;
-
-  // Build ACK message back to sender
-  char ackMsg[16];
-  snprintf(ackMsg, sizeof(ackMsg), "ACK,%u", (unsigned)seq);
-
-  if (strcmp(kind, "CORRECT") == 0) {
-    // 1) ACK back to the sender (app-level confirmation)
-    sendWithLinkRetry(info->src_addr, String(ackMsg), 1, 35);
-
-    // 2) Stop local round and report to WebSocket with attempts
-    pendingStop = true;
-    isPlaying = false;
-
-    // attempts = failCnt + 1 (failCnt == number of FAIL before the CORRECT)
-    int attempts = failCnt + 1;
-    failCnt = 0;
-    String wsMsg = "CORRECT," + String(attempts);
-    webSocket.sendTXT(clientNum, wsMsg);
-
-    // 3) Redistribute official CORRECT to all nodes (except Hub)
-    for (int i = 2; i <= 4; ++i) {
-      sendWithLinkRetry(PEERS[i], String("CORRECT"), 1, 35);
-      delayMicroseconds(1500); // short pacing
-    }
-    return;
-  }
-
-  if (strcmp(kind, "FAIL") == 0) {
-    // 1) increase fail count
-    failCnt++;
-    Serial.printf("[NOW] FAIL count: %d\n", failCnt);
-
-    // 2) ACK back to the sender
-    sendWithLinkRetry(info->src_addr, String(ackMsg), 1, 35);
-    return;
-  }
-}
-
-// Replace sentCallback with this common signature:
-void sentCallback(const wifi_tx_info_t* info, esp_now_send_status_t status) {
-  g_lastSendOk   = (status == ESP_NOW_SEND_SUCCESS);
-  g_lastSendDone = true;
-  Serial.print("[NOW] Last Packet Send Status: ");
-  Serial.println(g_lastSendOk ? "Delivery Success" : "Delivery Fail");
-}
-
 void startRound(int mode, int volume) {
   switch(mode) {
     case 1:
@@ -322,8 +236,6 @@ void startMode2(int volume) {
     player.volume(constrain((volume * 30) / 100, 0, 30));
     trackNum = 1;
     startLoopTrack();
-  } else {
-    player.volume(0);
   }
 }
 
@@ -334,7 +246,6 @@ void stopMode1() {
 void stopMode2() {
   neopixelOff();
   player.stop();
-  trackNum = 0;
 }
 
 void startLoopTrack() {
@@ -342,7 +253,9 @@ void startLoopTrack() {
   Serial.printf("Looping track #%u\n", trackNum);
 }
 
-// websocket
+///////////////////////
+// === WebSocket 이벤트 ===
+///////////////////////
 void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length) {
   clientNum = num;
   switch(type) {
@@ -426,7 +339,6 @@ void setup() {
     delay(2000);
     ESP.restart();
   }
-  registerAllPeers();
 
   // WebSocket
   webSocket.begin();
@@ -448,16 +360,21 @@ void setup() {
 
 void loop() {
   webSocket.loop();
-
+  // if (isMe && mode != 1) {
+  //   if (!wav->isRunning()) {
+  //     delete file;
+  //     file = new AudioFileSourceSD("/sound.wav");
+  //     wav->begin(file, out);
+  //   } else {
+  //     if (!wav->loop()) {
+  //         wav->stop();
+  //     }
+  //   }
+  // }
   if (bcastAnswer) {
     bcastAnswer = false;
     String msg = String(mode) + "," + String(volume) + "," + String(answer);
-
-    delay(500);
-    for (int i = 2; i <= 2; i++) {
-      sendWithLinkRetry(PEERS[i], msg, 1, 35);
-      delayMicroseconds(1500);
-    }
+    broadcast(msg);
   }
 
   if (pendingStop) {
@@ -468,7 +385,7 @@ void loop() {
     failCnt = 0;
   }
 
-  if (player.available() && isPlaying && trackNum != 0) {
+  if (player.available() && isPlaying) {
     uint8_t type = player.readType();
     int value    = player.read();
 
@@ -494,28 +411,19 @@ void loop() {
   if (vibISRFlag && isPlaying) {
     vibISRFlag = false;
     delay(100);
-
-    if (isMe) {
+    if(isMe) {
+      isMe = false;
       pendingStop = true;
       isPlaying = false;
-
-      int attempts = failCnt + 1;
-      failCnt = 0;
-
-      if(mode != 1) {
-        for (int i = 2; i <= 4; ++i) {
-          sendWithLinkRetry(PEERS[i], String("CORRECT"), 1, 35);
-          delayMicroseconds(1500);
-        }
+      for(int i = 1; i <= 4; i++) {
+        if(i == ID) continue;
+        unicast(PERRS[i], "CORRECT");
       }
-      
-
     } else {
       failCnt++;
-      Serial.printf("[HUB] False tap, FAIL count=%d\n", failCnt);
+      Serial.println(failCnt);
     }
   }
-
   delay(50);
 }
 

@@ -10,19 +10,6 @@
 // const char* WIFI_SSID = "302-211";
 // const char* WIFI_PASS = "";  // 필요 시 비번
 
-// === add: hub index and app-level ACK state ===
-#define HUB_IDX 1
-
-// link-level send result flags (from send-callback)
-volatile bool g_lastSendDone = false;
-volatile bool g_lastSendOk   = false;
-
-// app-level ACK waiting state
-volatile uint16_t g_waitSeq = 0;
-volatile bool     g_ackGot  = false;
-
-uint16_t nextSeq() { static uint16_t s = 0; return ++s; }
-
 // MAC table
 const uint8_t PEERS[5][6] = {
   {0x00,0x00,0x00,0x00,0x00,0x00},          // [0] unused
@@ -39,7 +26,7 @@ Adafruit_NeoPixel ring(NUM_LEDS, NEOPIXEL_PIN, NEO_GRB + NEO_KHZ800);
 
 //vibration detection
 #define VIB_PIN        4       // 디지털 입력
-#define VIB_DEBOUNCE_MS  1500 // 잡음 방지
+#define VIB_DEBOUNCE_MS  2000 // 잡음 방지
 volatile bool vibISRFlag = false;
 volatile uint32_t vibLastMs = 0;
 
@@ -62,7 +49,7 @@ static const uint8_t RX_PIN = 27; // ESP32 RX from DFPlayer TX
 HardwareSerial mp3Serial(2);  // UART2
 DFRobotDFPlayerMini player;
 
-uint16_t trackNum = 0;
+uint16_t trackNum = 1;
 static const uint32_t kFinishDebounceMs = 150; // debounce for duplicate finish events
 uint32_t lastFinishMs = 0;
 
@@ -97,6 +84,51 @@ void formatMacAddress(const uint8_t *macAddr, char *buffer, int maxLength) {
            macAddr[0], macAddr[1], macAddr[2], macAddr[3], macAddr[4], macAddr[5]);
 }
 
+void receiveCallback(const esp_now_recv_info_t *info, const uint8_t *data, int dataLen) {
+  // guard
+  if (!info || !data || dataLen <= 0) return;
+
+  // clamp length and ensure NUL
+  char buffer[ESP_NOW_MAX_DATA_LEN + 1];
+  int msgLen = min(ESP_NOW_MAX_DATA_LEN, dataLen);
+  strncpy(buffer, (const char *)data, msgLen);
+  buffer[msgLen] = 0;
+
+  // format source MAC (info->src_addr)
+  char macStr[18] = {0};
+  formatMacAddress(info->src_addr, macStr, sizeof(macStr));
+
+  Serial.printf("Received message from: %s - %s\n", macStr, buffer);
+
+  if (strcmp("CORRECT", buffer) == 0) {
+    pendingStop = true;
+    isPlaying = false;
+  } else if(strcmp("fail", buffer) == 0) {
+  } else {
+    isPlaying = true;
+    char *token = strtok(buffer, ",");
+    int m=0, v=0, who=0;
+    if (token) { m = atoi(token); token = strtok(NULL, ","); }
+    if (token) { v = atoi(token); token = strtok(NULL, ","); }
+    if (token) { who = atoi(token); }
+    mode   = m;
+    volume = v;
+    isMe   = (ID == who);
+    answer = who;
+    pendingMode = mode;
+    pendingVol  = volume;
+    pendingStart = true;   // loop()에서 startRound 실행
+    vibISRFlag = false;
+  }
+}
+
+void sentCallback(const wifi_tx_info_t *info, esp_now_send_status_t status) {
+  // NOTE: wifi_tx_info_t may not expose dest MAC the same way as before;
+  // print status only (or inspect fields if needed).
+  Serial.print("Last Packet Send Status: ");
+  Serial.println(status == ESP_NOW_SEND_SUCCESS ? "Delivery Success" : "Delivery Fail");
+}
+
 // helper: add peer (broadcast or unicast)
 static bool ensurePeer(const uint8_t addr[6]) {
   if (esp_now_is_peer_exist(addr)) return true;
@@ -106,8 +138,6 @@ static bool ensurePeer(const uint8_t addr[6]) {
   peerInfo.channel = 0;             // 0 = current channel; or set explicit WiFi.channel()
   peerInfo.encrypt = false;         // no LMK
   // peerInfo.lmk left zeroed
-  
-  
   return (esp_now_add_peer(&peerInfo) == ESP_OK);
 }
 
@@ -176,140 +206,6 @@ void unicast(const uint8_t addr[6], const String& message) {
   }
 }
 
-// === add: ensure peer then send with light retry ===
-bool sendSafe(const uint8_t addr[6], const uint8_t* data, size_t len) {
-  if (!esp_now_is_peer_exist(addr)) {
-    if (!ensurePeer(addr)) {
-      Serial.println("ensurePeer failed");
-      return false;
-    }
-  }
-  esp_err_t err = esp_now_send(addr, data, len);
-
-  // quick retry for transient errors
-  if (err == ESP_ERR_ESPNOW_NOT_FOUND) {
-    if (ensurePeer(addr)) err = esp_now_send(addr, data, len);
-  } else if (err == ESP_ERR_ESPNOW_NO_MEM || err == ESP_ERR_ESPNOW_INTERNAL) {
-    delay(3);
-    err = esp_now_send(addr, data, len);
-  }
-  return (err == ESP_OK);
-}
-
-// === add: link-level check using send-callback ===
-bool sendWithLinkRetry(const uint8_t addr[6], const String& s, int retries=1, uint32_t timeoutMs=30) {
-  for (int t=0; t<=retries; ++t) {
-    g_lastSendDone = false; g_lastSendOk = false;
-    if (!sendSafe(addr, (const uint8_t*)s.c_str(), s.length())) {
-      delay(2);
-      continue;
-    }
-    uint32_t start = millis();
-    while (!g_lastSendDone && (millis()-start) < timeoutMs) { delay(1); }
-    if (g_lastSendDone && g_lastSendOk) return true;
-    delay(2);
-  }
-  return false;
-}
-
-// === add: app-level ACK roundtrip ===
-// kind: "CORRECT" / "FAIL" 등, payload: "KIND,ID,SEQ"
-bool sendWithAppAck_ToHub(const char* kind, int nodeId, uint32_t timeoutMs=120, int retries=2) {
-  uint16_t seq = nextSeq();
-  char msg[40];
-  snprintf(msg, sizeof(msg), "%s,%d,%u", kind, nodeId, (unsigned)seq);
-
-  for (int t=0; t<=retries; ++t) {
-    g_waitSeq = seq; g_ackGot = false;
-
-    if (!sendWithLinkRetry(PEERS[HUB_IDX], String(msg), 1, 35)) {
-      delay(3);
-      continue;
-    }
-
-    uint32_t start = millis();
-    while (!g_ackGot && (millis() - start) < timeoutMs) { delay(2); }
-    if (g_ackGot) return true;     // app-level processed by HUB
-    // timeout → retry
-    delay(5);
-  }
-  return false;
-}
-
-// HUB-side receiveCallback (essential part)
-void receiveCallback(const esp_now_recv_info_t *info, const uint8_t *data, int len) {
-  if (!info || !data || len <= 0) return;
-
-  char buf[ESP_NOW_MAX_DATA_LEN+1];
-  int n = min(ESP_NOW_MAX_DATA_LEN, len);
-  strncpy(buf, (const char*)data, n); buf[n] = 0;
-
-  // e.g., "CORRECT,ID,SEQ"
-  if (strncmp(buf, "CORRECT,", 8) == 0) {
-    // parse id and seq
-    // format: CORRECT,<id>,<seq>
-    char* p = buf + 8;
-    int id  = atoi(p);
-    char* comma = strchr(p, ',');
-    uint16_t seq = 0;
-    if (comma) seq = (uint16_t)atoi(comma+1);
-
-    // 1) ACK back to the sender
-    char ack[16];
-    snprintf(ack, sizeof(ack), "ACK,%u", (unsigned)seq);
-    sendWithLinkRetry(info->src_addr, String(ack), 1, 35);
-
-    // 2) redistribute official CORRECT to all nodes (except hub)
-    //    add small pacing to avoid queue congestion
-    // for (int i=2; i<=4; ++i) {  // adjust indices to your nodes
-    //   sendWithLinkRetry(PEERS[i], String("CORRECT"), 1, 35);
-    //   delayMicroseconds(1500);
-    // }
-
-    // 3) local state: stop your own round, log, etc.
-    pendingStop = true; isPlaying = false;
-    return;
-  }
-
-  // optionally handle "FAIL,ID,SEQ"
-  if (strncmp(buf, "FAIL,", 5) == 0) {
-    // parse/use as needed, then ACK if you also want app-level confirmation
-    char* p = buf + 5;
-    char* comma = strchr(p, ',');
-    uint16_t seq = 0;
-    if (comma) seq = (uint16_t)atoi(comma+1);
-
-    char ack[16];
-    snprintf(ack, sizeof(ack), "ACK,%u", (unsigned)seq);
-    sendWithLinkRetry(info->src_addr, String(ack), 1, 35);
-    return;
-  }
-
-  isPlaying = true;
-  char *token = strtok(buf, ",");
-  int m=0, v=0, who=0;
-  if (token) { m = atoi(token); token = strtok(NULL, ","); }
-  if (token) { v = atoi(token); token = strtok(NULL, ","); }
-  if (token) { who = atoi(token); }
-  mode   = m;
-  volume = v;
-  isMe   = (ID == who);
-  answer = who;
-  pendingMode = mode;
-  pendingVol  = volume;
-  pendingStart = true;   // loop()에서 startRound 실행
-  vibISRFlag = false;
-  return;
-}
-
-// replace your sentCallback with this (common signature)
-void sentCallback(const wifi_tx_info_t* info, esp_now_send_status_t status) {
-  g_lastSendOk   = (status == ESP_NOW_SEND_SUCCESS);
-  g_lastSendDone = true;
-  Serial.print("Last Packet Send Status: ");
-  Serial.println(g_lastSendOk ? "Delivery Success" : "Delivery Fail");
-}
-
 void startRound(int mode, int volume) {
   switch(mode) {
     case 2:
@@ -346,15 +242,12 @@ void startMode2(int volume) {
     player.volume(constrain((volume * 30) / 100, 0, 30));
     trackNum = 1;
     startLoopTrack();
-  } else {
-    player.volume(0);
   }
 }
 
 void stopMode2() {
   neopixelOff();
   player.stop();
-  trackNum = 0;
 }
 
 void startLoopTrack() {
@@ -427,7 +320,7 @@ void loop() {
     startRound(pendingMode, pendingVol);
   }
 
-  if (player.available() && isPlaying && trackNum != 0) {
+  if (player.available() && isPlaying) {
     uint8_t type = player.readType();
     int value    = player.read();
 
@@ -452,20 +345,17 @@ void loop() {
 
   if (vibISRFlag && isPlaying) {
     vibISRFlag = false;
-    delay(150); // small settling delay
-
-    if (isMe) {
+    delay(100);
+    if(isMe) {
       isMe = false;
-      bool ok = sendWithAppAck_ToHub("CORRECT", ID, 120, 2);
-      if (!ok) {
-        Serial.println("Failed to deliver CORRECT to HUB (no ACK).");
-      }
-
       pendingStop = true;
       isPlaying = false;
-
+      for(int i = 1; i <= 4; i++) {
+        if(i == ID) continue;
+        unicast(PEERS[i], "CORRECT");
+      }
     } else {
-      sendWithAppAck_ToHub("FAIL", ID, 80, 1); // optional
+      unicast(PEERS[1], "fail");
     }
   }
   delay(50);
