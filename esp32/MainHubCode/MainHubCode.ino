@@ -246,6 +246,7 @@ void stopMode1() {
 void stopMode2() {
   neopixelOff();
   player.stop();
+  trackNum = 0;
 }
 
 void startLoopTrack() {
@@ -385,7 +386,7 @@ void loop() {
     failCnt = 0;
   }
 
-  if (player.available() && isPlaying) {
+  if (player.available() && isPlaying && trackNum != 0) {
     uint8_t type = player.readType();
     int value    = player.read();
 
@@ -417,7 +418,7 @@ void loop() {
       isPlaying = false;
       for(int i = 1; i <= 4; i++) {
         if(i == ID) continue;
-        unicast(PERRS[i], "CORRECT");
+        unicast(PEERS[i], "CORRECT");
       }
     } else {
       failCnt++;

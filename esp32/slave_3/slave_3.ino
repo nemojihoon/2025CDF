@@ -31,7 +31,7 @@ volatile bool vibISRFlag = false;
 volatile uint32_t vibLastMs = 0;
 
 // game state
-#define ID 2
+#define ID 3
 volatile bool pendingStart = false;
 volatile bool pendingStop  = false;
 volatile int  pendingMode  = 0;
