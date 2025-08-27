@@ -211,9 +211,9 @@ void startRound(int mode, int volume) {
     case 2:
       startMode2(volume);
       break;
-    // case 3:
-    //   startMode3(volume);
-    //   break;
+    case 3:
+      startMode3(volume);
+      break;
     // case 4:
     //   startMode4(volume);
     //   break;
@@ -225,9 +225,9 @@ void stopRound(int mode) {
     case 2:
       stopMode2();
       break;
-    // case 3:
-    //   stopMode3();
-    //   break;
+    case 3:
+      stopMode3();
+      break;
     // case 4:
     //   stopMode4();
     //   break;
@@ -239,13 +239,27 @@ void startMode2(int volume) {
   if(isMe) {
     uint32_t c = randomColor();
     neopixelAll(c);
-    player.volume(constrain((volume * 30) / 100, 0, 30));
+    player.volume(constrain((volume * 25) / 100, 0, 30));
+    trackNum = 1;
+    startLoopTrack();
+  }
+}
+
+void startMode3(int volume) {
+  if(isMe) {
+    player.volume(constrain((volume * 25) / 100, 0, 30));
     trackNum = 1;
     startLoopTrack();
   }
 }
 
 void stopMode2() {
+  neopixelOff();
+  player.stop();
+  trackNum = 0;
+}
+
+void stopMode3() {
   neopixelOff();
   player.stop();
   trackNum = 0;
