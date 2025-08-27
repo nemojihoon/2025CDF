@@ -17,10 +17,10 @@ uint8_t clientNum = 0;
 const uint8_t PEERS[5][6] = {
   {0x00,0x00,0x00,0x00,0x00,0x00},          // [0] unused
   {0x3C,0x8A,0x1F,0x0B,0x91,0xC0},          // [1] 3C:8A:1F:0B:91:C0
-  {0x80,0xF3,0xDA,0xAC,0xE3,0xB4},          // [2] 80:F3:DA:AC:E3:B4
-  {0x00,0x00,0x00,0x00,0x00,0x00},          // [3]
-  {0x00,0x00,0x00,0x00,0x00,0x00}           // [4]
-}; 
+  {0xF0,0x24,0xF9,0x45,0xF8,0xDC},          // [2] F0:24:F9:45:F8:DC
+  {0x80,0xF3,0xDA,0xAC,0xE3,0xB4},          // [3] 80:F3:DA:AC:E3:B4
+  {0x80,0xF3,0xDA,0xAD,0x0B,0x2C}           // [4] 80:F3:DA:AD:0B:2C
+};
 
 // neopixel
 #define NEOPIXEL_PIN   16      // 데이터핀 (필요시 변경)
@@ -415,8 +415,10 @@ void loop() {
       isMe = false;
       pendingStop = true;
       isPlaying = false;
-      // broadcast("correct");
-      unicast(PEERS[1], "correct");
+      for(int i = 1; i <= 4; i++) {
+        if(i == ID) continue;
+        unicast(PERRS[i], "correct");
+      }
     } else {
       failCnt++;
       Serial.println(failCnt);
