@@ -102,7 +102,7 @@ void receiveCallback(const esp_now_recv_info_t *info, const uint8_t *data, int d
 
   Serial.printf("Received message from: %s - %s\n", macStr, buffer);
 
-  if(strcmp("correct", buffer) == 0) {
+  if(strcmp("CORRECT", buffer) == 0) {
     pendingStop = true;
     isPlaying = false;
   } else if(strcmp("fail", buffer) == 0) {
@@ -410,14 +410,14 @@ void loop() {
 
   if (vibISRFlag && isPlaying) {
     vibISRFlag = false;
-    delay(500);
+    delay(100);
     if(isMe) {
       isMe = false;
       pendingStop = true;
       isPlaying = false;
       for(int i = 1; i <= 4; i++) {
         if(i == ID) continue;
-        unicast(PERRS[i], "correct");
+        unicast(PERRS[i], "CORRECT");
       }
     } else {
       failCnt++;
