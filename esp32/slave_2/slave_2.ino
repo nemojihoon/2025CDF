@@ -214,9 +214,9 @@ void startRound(int mode, int volume) {
     case 3:
       startMode3(volume);
       break;
-    // case 4:
-    //   startMode4(volume);
-    //   break;
+    case 4:
+      startMode4(volume);
+      break;
   }
 }
 
@@ -228,9 +228,9 @@ void stopRound(int mode) {
     case 3:
       stopMode3();
       break;
-    // case 4:
-    //   stopMode4();
-    //   break;
+    case 4:
+      stopMode4();
+      break;
   }
 }
 
@@ -253,6 +253,16 @@ void startMode3(int volume) {
   }
 }
 
+void startMode4(int volume) {
+  player.volume(constrain((volume * 25) / 100, 0, 30));
+  if(isMe) {
+    trackNum = 1;
+  } else {
+    trackNum = 2;
+  }
+  startLoopTrack();
+}
+
 void stopMode2() {
   neopixelOff();
   player.stop();
@@ -260,6 +270,12 @@ void stopMode2() {
 }
 
 void stopMode3() {
+  neopixelOff();
+  player.stop();
+  trackNum = 0;
+}
+
+stopMode4() {
   neopixelOff();
   player.stop();
   trackNum = 0;
