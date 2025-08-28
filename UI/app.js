@@ -82,9 +82,10 @@ document.addEventListener("DOMContentLoaded", () => {
   let socket = null;
 
   // 조건을 만족하는 "다음 1개의 메시지"를 기다리는 헬퍼
-  function waitForMessage(ws, predicate = () => true, timeoutMs = 0) {
+  // 4번째 인자: options.resolveOnTimeout = true 이면 타임아웃 시 null로 resolve
+  function waitForMessage(ws, predicate = () => true, timeoutMs = 0, options = {}) {
+    const { resolveOnTimeout = false } = options;
     return new Promise((resolve, reject) => {
-      //<<<<<<<<오류 관리========
       if (!ws || ws.readyState !== WebSocket.OPEN) {
         reject(new Error("WebSocket not open"));
         return;
@@ -99,35 +100,22 @@ document.addEventListener("DOMContentLoaded", () => {
         if (timer) clearTimeout(timer);
       };
 
-      const onClose = () => {
-        cleanup();
-        reject(new Error("WebSocket closed"));
-      };
+      const onClose = () => { cleanup(); reject(new Error("WebSocket closed")); };
+      const onError = () => { cleanup(); reject(new Error("WebSocket error")); };
 
-      const onError = () => {
-        cleanup();
-        reject(new Error("WebSocket error"));
-      };
-      //========오류 관리>>>>>>>>>
       const onMsg = async (e) => {
         try {
           let text;
-          if (typeof e.data === "string") {
-            text = e.data;
-          } else if (e.data instanceof Blob) {
-            text = await e.data.text();
-          } else if (e.data instanceof ArrayBuffer) {
-            text = new TextDecoder().decode(e.data);
-          } else {
-            text = String(e.data ?? "");
-          }
+          if (typeof e.data === "string") text = e.data;
+          else if (e.data instanceof Blob) text = await e.data.text();
+          else if (e.data instanceof ArrayBuffer) text = new TextDecoder().decode(e.data);
+          else text = String(e.data ?? "");
+
           if (predicate(text)) {
             cleanup();
             resolve(text);
           }
-        } catch {
-          // 파싱 실패는 무시하고 계속 대기
-        }
+        } catch { /* ignore */ }
       };
 
       ws.addEventListener("message", onMsg);
@@ -137,11 +125,13 @@ document.addEventListener("DOMContentLoaded", () => {
       if (timeoutMs > 0) {
         timer = setTimeout(() => {
           cleanup();
-          reject(new Error("timeout"));
+          if (resolveOnTimeout) resolve(null);     // ✅ 예외 대신 null 반환
+          else reject(new Error("timeout"));
         }, timeoutMs);
       }
     });
   }
+
 
   function safeSend(message) {
     if (socket && socket.readyState === WebSocket.OPEN) {
@@ -181,12 +171,15 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+  let quitRequested = false;
   // 라운드 N번 반복: 항상 "CORRECT,<시도횟수>"를 기다림
   async function repeatRound(mode, volume, totalRounds) {
     if (!socket || socket.readyState !== WebSocket.OPEN) {
       throw new Error("WebSocket 미연결");
     }
-
+    quitRequested = false;            // ✅ 시작 시 항상 초기화
+    const WAIT_TIMEOUT = 300;
+    
     const results = [];
     let curr = 0;
 
@@ -198,8 +191,11 @@ document.addEventListener("DOMContentLoaded", () => {
     const isCorrect = (m) => /^CORRECT,\d+$/.test(String(m).trim());
 
     while (curr < totalRounds) {
+      if (quitRequested) break;
       try {
-        const msg = await waitForMessage(socket, isCorrect, 0);
+        const msg = await waitForMessage(socket, isCorrect, WAIT_TIMEOUT, { resolveOnTimeout: true });
+        if (msg === null) continue;
+        if (quitRequested) break;
         const text = String(msg).trim();
         const attempts = parseInt(text.split(",")[1], 10); // 숫자 보장
         console.log("correct", attempts);
@@ -213,6 +209,7 @@ document.addEventListener("DOMContentLoaded", () => {
         curr++;
         if (curr < totalRounds) {
           // 다음 라운드 시작
+          if (quitRequested) break;
           sendGameStart(mode, volume);
           updateGameHUD(curr + 1, totalRounds);   // ✅ 다음 라운드 표시
           startTime = performance.now();
@@ -241,6 +238,7 @@ document.addEventListener("DOMContentLoaded", () => {
   if (quitBtn) {
     quitBtn.addEventListener("click", () => {
       safeSend("QUIT");
+      quitRequested = true;
     });
   }
 
@@ -283,7 +281,7 @@ document.addEventListener("DOMContentLoaded", () => {
       alert(`[연습모드 시작] 라운드: ${reps}\n정답이 오면 다음 라운드로 진행합니다.`);
       showView("gameView"); 
       try {
-        await repeatRound(1, 0, reps); // 모드1은 volume=0으로 가정
+        await repeatRound(1, 100, reps); // 모드1은 volume=100으로 가정
       } catch (e) {
         console.warn("모드1 실행 중 오류:", e.message);
       }

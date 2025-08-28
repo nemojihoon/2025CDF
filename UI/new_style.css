@@ -238,12 +238,16 @@ input[type="range"]::-moz-range-thumb {
   overflow: auto;
   border: 1px solid var(--line);
   border-radius: var(--radius-md);
-  padding: 8px;
+  padding: 0 8px 8px; /* ← top만 0 */
   margin: 12px auto;
   width: min(100%, 840px);
   background: var(--card);
   box-shadow: var(--shadow-sm);
+
+  
 }
+
+
 
 #dataTable {
   border-collapse: collapse;
@@ -255,10 +259,15 @@ input[type="range"]::-moz-range-thumb {
   background: linear-gradient(180deg, var(--primary-500), var(--primary-600));
   color: #fff;
   text-align: left;
+  z-index: 2;/* 간격 띄우기*/
   padding: 12px 14px;
 }
 #dataTable td { padding: 12px 14px; border-bottom: 1px solid var(--line); }
+#dataTable tbody td { background: var(--card); } /* 투명도로 비침 방지 */
+
 #dataTable tr:hover { background: rgba(102,187,106,0.06); }
+#dataTable { border-collapse: separate; border-spacing: 0; } /* 보더 겹침 자체 제거 */
+
 
 /* Delete button in rows */
 .row-delete {
