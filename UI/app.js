@@ -262,15 +262,6 @@ document.addEventListener("DOMContentLoaded", () => {
     btn.addEventListener("click", () => showView("homeView"));
   });
 
-  // 녹음 시작(홈)
-  const startBtn = document.getElementById("startBtn");
-  if (startBtn) {
-    startBtn.addEventListener("click", () => {
-      alert("녹음이 시작됩니다!");
-      safeSend("LED_ON");
-    });
-  }
-
   // =========================================================
   // 4) 모드 1: Tapping 연습모드 (통일된 루프 사용)
   // =========================================================
@@ -309,7 +300,7 @@ document.addEventListener("DOMContentLoaded", () => {
   if (m2TestBtn) {
     m2TestBtn.addEventListener("click", () => {
       const vol = m2VolumeInput ? Number(m2VolumeInput.value) : 80;
-      playBeep(vol, 523.25);
+      safeSend(`TEST,${vol}`);
     });
   }
   if (m2Run) {
@@ -352,7 +343,7 @@ document.addEventListener("DOMContentLoaded", () => {
   if (m3TestBtn) {
     m3TestBtn.addEventListener("click", () => {
       const vol = m3VolumeInput ? Number(m3VolumeInput.value) : 80;
-      playBeep(vol, 440);
+      safeSend(`TEST,${vol}`);
     });
   }
   if (m3Run) {
@@ -394,7 +385,7 @@ document.addEventListener("DOMContentLoaded", () => {
   if (m4TestBtn) {
     m4TestBtn.addEventListener("click", () => {
       const vol = m4VolumeInput ? Number(m4VolumeInput.value) : 80;
-      playBeep(vol, 660);
+      safeSend(`TEST,${vol}`);
     });
   }
   if (m4Run) {

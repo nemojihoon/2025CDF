@@ -181,8 +181,13 @@ button:focus-visible {
   transform: translateY(-1px);
 }
 
-/* Extra spacing for the recording button on home */
-#startBtn { margin-top: 22px; }
+/* 홈: 데이터 보기 버튼 센터 정렬 */
+#homeView #viewDataBtn {
+  display: block;
+  margin: 16px auto 0;   /* 가로 가운데 + 위 여백 */
+}
+
+
 
 /* 6) Forms -------------------------------------------------------------- */
 .form-row {
