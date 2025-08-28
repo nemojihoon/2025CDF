@@ -34,8 +34,6 @@ volatile uint32_t vibLastMs = 0;
 #define ID 3
 volatile bool pendingStart = false;
 volatile bool pendingStop  = false;
-volatile int  pendingMode  = 0;
-volatile int  pendingVol   = 0;
 volatile bool isPlaying = false;
 volatile bool isMe = false;
 volatile int mode = 0;
@@ -115,8 +113,6 @@ void receiveCallback(const esp_now_recv_info_t *info, const uint8_t *data, int d
     volume = v;
     isMe   = (ID == who);
     answer = who;
-    pendingMode = mode;
-    pendingVol  = volume;
     pendingStart = true;   // loop()에서 startRound 실행
     vibISRFlag = false;
   }
@@ -275,7 +271,7 @@ void stopMode3() {
   trackNum = 0;
 }
 
-stopMode4() {
+void stopMode4() {
   neopixelOff();
   player.stop();
   trackNum = 0;
@@ -342,13 +338,14 @@ void setup() {
 }
 
 void loop() {
-  if (pendingStop) {
-    pendingStop = false;
-    stopRound(mode);
-  }
   if (pendingStart) {
     pendingStart = false;
-    startRound(pendingMode, pendingVol);
+    startRound(mode, volume);
+  }
+  if (pendingStop) {
+    pendingStop = false;
+    isPlaying = false;
+    stopRound(mode);
   }
 
   if (player.available() && isPlaying && trackNum != 0) {
@@ -380,7 +377,6 @@ void loop() {
     if(isMe) {
       isMe = false;
       pendingStop = true;
-      isPlaying = false;
       for(int i = 1; i <= 4; i++) {
         if(i == ID) continue;
         unicast(PEERS[i], "CORRECT");
