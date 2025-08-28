@@ -273,7 +273,7 @@ void stopMode3() {
   trackNum = 0;
 }
 
-stopMode4() {
+void stopMode4() {
   neopixelOff();
   player.stop();
   trackNum = 0;
@@ -334,6 +334,7 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length
 
       isPlaying = true;
       bcastAnswer = true;
+      failCnt = 0;
       startRound(mode, volume);
       break;
     }

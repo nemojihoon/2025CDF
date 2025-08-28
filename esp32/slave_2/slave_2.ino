@@ -271,7 +271,7 @@ void stopMode3() {
   trackNum = 0;
 }
 
-stopMode4() {
+void stopMode4() {
   neopixelOff();
   player.stop();
   trackNum = 0;
