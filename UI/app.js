@@ -269,7 +269,6 @@ document.addEventListener("DOMContentLoaded", () => {
   // 5) 모드 2: Sound & Light (하)
   // =========================================================
   const m2Rounds = document.getElementById("m2_rounds");
-  const m2Brightness = document.getElementById("m2_brightness");
   const m2VolumeInput = document.getElementById("m2_volume");
   const m2VolumeValue = document.getElementById("m2_volumeValue");
   const m2TestBtn = document.getElementById("m2Test");
@@ -293,10 +292,9 @@ document.addEventListener("DOMContentLoaded", () => {
   if (m2Run) {
     m2Run.addEventListener("click", async () => {
       const rounds = m2Rounds ? +m2Rounds.value : 5;
-      const brightness = m2Brightness ? +m2Brightness.value : 70;
       const volume = m2VolumeInput ? +m2VolumeInput.value : 80;
 
-      alert(`[Sound&Light 실행] 라운드:${rounds}, 밝기:${brightness}, 음량:${volume}%`);
+      alert(`[Sound&Light 실행] 라운드:${rounds}, 음량:${volume}%`);
       // 허브가 밝기를 쓰는 경우 유지
 
 
