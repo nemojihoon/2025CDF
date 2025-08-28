@@ -281,7 +281,7 @@ document.addEventListener("DOMContentLoaded", () => {
       alert(`[연습모드 시작] 라운드: ${reps}\n정답이 오면 다음 라운드로 진행합니다.`);
       showView("gameView"); 
       try {
-        await repeatRound(1, 100, reps); // 모드1은 volume=100으로 가정
+        await repeatRound(1, 80, reps); // 모드1은 volume=80으로 가정
       } catch (e) {
         console.warn("모드1 실행 중 오류:", e.message);
       }
