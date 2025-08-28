@@ -59,6 +59,18 @@ document.addEventListener("DOMContentLoaded", () => {
     data.push({ mode, date: new Date().toISOString(), results: resultsArray });
     localStorage.setItem(key, JSON.stringify(data));
   }
+  
+  // ===== 게임 진행 HUD =====
+  function updateGameHUD(current, total) {
+    const el = document.getElementById("roundText");
+    if (!el) return;
+    // current/total이 숫자로 들어오면 표시, 아니면 플레이스홀더
+    const c = Number.isFinite(current) ? current : "-";
+    const t = Number.isFinite(total)   ? total   : "-";
+    el.textContent = `라운드: ${c}/${t}`;
+  }
+
+
 
   // =========================================================
   // 2) WebSocket
@@ -180,6 +192,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // 1라운드 시작
     sendGameStart(mode, volume);
+    updateGameHUD(1, totalRounds);   // ✅ 첫 라운드 표시
     let startTime = performance.now();
 
     const isCorrect = (m) => /^CORRECT,\d+$/.test(String(m).trim());
@@ -201,6 +214,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (curr < totalRounds) {
           // 다음 라운드 시작
           sendGameStart(mode, volume);
+          updateGameHUD(curr + 1, totalRounds);   // ✅ 다음 라운드 표시
           startTime = performance.now();
         }
       } catch (e) {
@@ -216,11 +230,21 @@ document.addEventListener("DOMContentLoaded", () => {
         renderDataTable();
       }
     }
+    showView(`mode${mode}View`); // ✅ 게임 끝나면 원래 모드 화면으로 복귀
   }
-
 
   // 실제 연결 시도
   connectToWebSocket();
+
+  // ===== 중지 버튼: STOP 전송 =====
+  const quitBtn = document.getElementById("quitBtn");
+  if (quitBtn) {
+    quitBtn.addEventListener("click", () => {
+      safeSend("QUIT");
+    });
+  }
+
+
 
   // =========================================================
   // 3) 홈 화면 네비게이션
@@ -257,6 +281,7 @@ document.addEventListener("DOMContentLoaded", () => {
     m1Run.addEventListener("click", async () => {
       const reps = +document.getElementById("m1_reps").value || 10;
       alert(`[연습모드 시작] 라운드: ${reps}\n정답이 오면 다음 라운드로 진행합니다.`);
+      showView("gameView"); 
       try {
         await repeatRound(1, 0, reps); // 모드1은 volume=0으로 가정
       } catch (e) {
@@ -296,6 +321,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       alert(`[Sound&Light 실행] 라운드:${rounds}, 음량:${volume}%`);
       // 허브가 밝기를 쓰는 경우 유지
+      showView("gameView"); 
 
 
       // 라운드 진행(일반화 루프)
@@ -337,6 +363,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const volume = m3VolumeInput ? +m3VolumeInput.value : 80;
 
       alert(`[Only Sound 실행] 라운드:${rounds}, 음량:${volume}%`);
+      showView("gameView"); 
 
 
       try {
@@ -378,6 +405,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const volume = m4VolumeInput ? +m4VolumeInput.value : 80;
 
       alert(`[Many Sound 실행] 라운드:${rounds}, 음량:${volume}%`);
+      showView("gameView"); 
 
 
       try {

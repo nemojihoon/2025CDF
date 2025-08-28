@@ -302,5 +302,21 @@ footer small { opacity: 0.85; }
   box-shadow: var(--shadow-md);
 }
 
+/* ===== gameView 전용 최소 스타일 ===== */
+#gameView .game-hud {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: center;
+  margin-top: 12px;
+}
+
+#gameView #roundText {
+  font-weight: 700;
+  letter-spacing: 0.2px;
+}
+
+
+
 /* 11) Keep backward-compat for existing selectors from old CSS ---------- */
 /* (No rules required here beyond enhancements above; selectors preserved) */
