@@ -210,9 +210,9 @@ void startRound(int mode, int volume) {
     case 3:
       startMode3(volume);
       break;
-    // case 4:
-    //   startMode4(volume);
-    //   break;
+    case 4:
+      startMode4(volume);
+      break;
   }
 }
 
@@ -224,9 +224,9 @@ void stopRound(int mode) {
     case 3:
       stopMode3();
       break;
-    // case 4:
-    //   stopMode4();
-    //   break;
+    case 4:
+      stopMode4();
+      break;
   }
 }
 

@@ -285,6 +285,16 @@ void startLoopTrack() {
   Serial.printf("Looping track #%u\n", trackNum);
 }
 
+void correctSound() {
+  neopixelOff();
+  player.stop();
+  trackNum = 3;
+  startLoopTrack();
+  delay(500);
+  trackNum = 0;
+  player.stop();
+}
+
 // websocket
 void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length) {
   clientNum = num;
@@ -460,6 +470,7 @@ void loop() {
         if(i == ID) continue;
         unicast(PEERS[i], "CORRECT");
       }
+      correctSound();
     } else {
       failCnt++;
       Serial.println(failCnt);
