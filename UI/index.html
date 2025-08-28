@@ -52,7 +52,7 @@
 
     <!-- 🔊 음량 조절 추가 -->
     <div class="form-row">
-        <label>음량(%) <span id="m2_volumeValue">80%</span></label>
+        <label>음량 <span id="m2_volumeValue">80%</span></label>
         <input type="range" id="m2_volume" min="0" max="100" value="80"/>
     </div>
 
@@ -104,6 +104,16 @@
         <button class="secondary" data-back>뒤로가기</button>
       </div>
     </section>
+    
+        <!-- 게임 진행 화면 -->
+    <section id="gameView" class="view">
+      <h2>게임 중...</h2>
+      <div id="hud" class="game-hud">
+        <span id="roundText" aria-live="polite">라운드: -/-</span>
+        <button id="quitBtn" class="secondary" type="button">중지</button>
+      </div>
+    </section>
+
 
 
     
