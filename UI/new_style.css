@@ -69,11 +69,13 @@ header {
   position: sticky;
   top: 0;
   z-index: 10;
-  background: linear-gradient(135deg, var(--primary-600), var(--primary));
+  /* ⬇️ 트렌디 그린(에메랄드 600) → 민트(버튼 색) 그라데이션 */
+  background: linear-gradient(135deg, #059669, #00bfa5);
   color: #fff;
   padding: 18px 20px;
   box-shadow: var(--shadow-md);
 }
+
 header h1 {
   margin: 0 auto;
   max-width: 980px;
@@ -181,11 +183,6 @@ button:focus-visible {
   transform: translateY(-1px);
 }
 
-/* 홈: 데이터 보기 버튼 센터 정렬 */
-#homeView #viewDataBtn {
-  display: block;
-  margin: 16px auto 0;   /* 가로 가운데 + 위 여백 */
-}
 
 
 
