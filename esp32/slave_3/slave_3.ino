@@ -344,6 +344,7 @@ void loop() {
   }
   if (pendingStop) {
     pendingStop = false;
+    isPlaying = false;
     stopRound(mode);
   }
 
@@ -376,7 +377,6 @@ void loop() {
     if(isMe) {
       isMe = false;
       pendingStop = true;
-      isPlaying = false;
       for(int i = 1; i <= 4; i++) {
         if(i == ID) continue;
         unicast(PEERS[i], "CORRECT");

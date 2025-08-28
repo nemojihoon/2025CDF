@@ -36,6 +36,7 @@ volatile uint32_t vibLastMs = 0;
 // game state
 #define ID 1
 volatile bool pendingStop  = false;
+volatile bool pendingQuit = false;
 volatile bool isPlaying = false;
 volatile bool bcastAnswer = false;
 bool isMe = false;
@@ -305,10 +306,11 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length
       Serial.printf("[%u] RX: %s\n", num, msg.c_str());
 
       // STOP 명령만 체크 (대문자 그대로 비교)
-      if (msg.equals("STOP")) {
+      if (msg.equals("QUIT")) {
         Serial.println("== STOP command received ==");
         isPlaying = false;   // 재생 중단
         pendingStop = true;
+        pendingQuit = true;
         break;
       }
 
@@ -409,10 +411,20 @@ void loop() {
 
   if (pendingStop) {
     pendingStop = false;
+    isPlaying = false;
     stopRound(mode);
     String msg = "CORRECT," + String(failCnt+1);
     webSocket.sendTXT(clientNum, msg);
     failCnt = 0;
+  }
+
+  if(pendingQuit) {
+    pendingQuit = false;
+    pendingStop = true;
+      for(int i = 1; i <= 4; i++) {
+        if(i == ID) continue;
+        unicast(PEERS[i], "CORRECT");
+      }
   }
 
   if (player.available() && isPlaying && trackNum != 0) {
@@ -444,7 +456,6 @@ void loop() {
     if(isMe) {
       isMe = false;
       pendingStop = true;
-      isPlaying = false;
       for(int i = 1; i <= 4; i++) {
         if(i == ID) continue;
         unicast(PEERS[i], "CORRECT");
