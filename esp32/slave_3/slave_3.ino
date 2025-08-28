@@ -250,11 +250,12 @@ void startMode3(int volume) {
 }
 
 void startMode4(int volume) {
-  player.volume(constrain((volume * 25) / 100, 0, 30));
   if(isMe) {
     trackNum = 1;
+    player.volume(constrain((volume * 25) / 100, 0, 30));
   } else {
     trackNum = 2;
+    player.volume(constrain((volume * 0.8 * 25) / 100, 0, 30));
   }
   startLoopTrack();
 }
@@ -278,8 +279,18 @@ void stopMode4() {
 }
 
 void startLoopTrack() {
-  player.play(trackNum);
+  player.playMp3Folder(trackNum);
   Serial.printf("Looping track #%u\n", trackNum);
+}
+
+void correctSound() {
+  neopixelOff();
+  player.stop();
+  trackNum = 3;
+  startLoopTrack();
+  delay(500);
+  trackNum = 0;
+  player.stop();
 }
 
 void setup() {
@@ -377,6 +388,7 @@ void loop() {
     if(isMe) {
       isMe = false;
       pendingStop = true;
+      correctSound();
       for(int i = 1; i <= 4; i++) {
         if(i == ID) continue;
         unicast(PEERS[i], "CORRECT");

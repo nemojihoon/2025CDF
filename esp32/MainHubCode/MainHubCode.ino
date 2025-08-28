@@ -37,6 +37,7 @@ volatile uint32_t vibLastMs = 0;
 #define ID 1
 volatile bool pendingStop  = false;
 volatile bool pendingQuit = false;
+volatile bool pendingTest = false;
 volatile bool isPlaying = false;
 volatile bool bcastAnswer = false;
 bool isMe = false;
@@ -228,6 +229,7 @@ void stopRound(int mode) {
 void startMode1(int volume) {
   uint32_t c = randomColor();
   neopixelAll(c);
+  player.volume(constrain((volume * 30) / 100, 0, 30));
 }
 
 void startMode2(int volume) {
@@ -249,11 +251,12 @@ void startMode3(int volume) {
 }
 
 void startMode4(int volume) {
-  player.volume(constrain((volume * 25) / 100, 0, 30));
   if(isMe) {
     trackNum = 1;
+    player.volume(constrain((volume * 25) / 100, 0, 30));
   } else {
     trackNum = 2;
+    player.volume(constrain((volume * 0.8 * 25) / 100, 0, 30));
   }
   startLoopTrack();
 }
@@ -281,7 +284,7 @@ void stopMode4() {
 }
 
 void startLoopTrack() {
-  player.play(trackNum);
+  player.playMp3Folder(trackNum);
   Serial.printf("Looping track #%u\n", trackNum);
 }
 
@@ -323,6 +326,17 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length
         pendingQuit = true;
         break;
       }
+      
+      const char* s = msg.c_str();            // <-- C 문자열로 변환 (중요)
+      if (strncmp(s, "TEST", 4) == 0) {       // <-- msg -> s 로 변경
+        int vTmp;
+        if (sscanf(s, "TEST , %d", &vTmp) == 1) {   // <-- msg -> s 로 변경
+          volume = vTmp;                      // 0~100 가정
+        }
+        pendingTest = true;
+        break;
+      }
+
 
       char buf[64];  
       msg.toCharArray(buf, sizeof(buf));
@@ -431,10 +445,21 @@ void loop() {
   if(pendingQuit) {
     pendingQuit = false;
     pendingStop = true;
-      for(int i = 1; i <= 4; i++) {
-        if(i == ID) continue;
-        unicast(PEERS[i], "CORRECT");
-      }
+    for(int i = 1; i <= 4; i++) {
+      if(i == ID) continue;
+      unicast(PEERS[i], "CORRECT");
+    }
+  }
+
+  if(pendingTest) {
+    pendingTest = false;
+    trackNum = 1;
+    player.volume(constrain((volume * 30) / 100, 0, 30));
+    Serial.printf("== TEST pending ==");
+    startLoopTrack();
+    delay(500);
+    trackNum = 0;
+    player.stop();
   }
 
   if (player.available() && isPlaying && trackNum != 0) {
