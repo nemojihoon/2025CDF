@@ -34,8 +34,6 @@ volatile uint32_t vibLastMs = 0;
 #define ID 4
 volatile bool pendingStart = false;
 volatile bool pendingStop  = false;
-volatile int  pendingMode  = 0;
-volatile int  pendingVol   = 0;
 volatile bool isPlaying = false;
 volatile bool isMe = false;
 volatile int mode = 0;
@@ -115,8 +113,6 @@ void receiveCallback(const esp_now_recv_info_t *info, const uint8_t *data, int d
     volume = v;
     isMe   = (ID == who);
     answer = who;
-    pendingMode = mode;
-    pendingVol  = volume;
     pendingStart = true;   // loop()에서 startRound 실행
     vibISRFlag = false;
   }
@@ -342,15 +338,15 @@ void setup() {
 }
 
 void loop() {
+  if (pendingStart) {
+    pendingStart = false;
+    startRound(mode, volume);
+  }
   if (pendingStop) {
     pendingStop = false;
     stopRound(mode);
   }
-  if (pendingStart) {
-    pendingStart = false;
-    startRound(pendingMode, pendingVol);
-  }
-
+  
   if (player.available() && isPlaying && trackNum != 0) {
     uint8_t type = player.readType();
     int value    = player.read();

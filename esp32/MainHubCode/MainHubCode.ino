@@ -200,9 +200,9 @@ void startRound(int mode, int volume) {
     case 3:
       startMode3(volume);
       break;
-    // case 4:
-    //   startMode4(volume);
-    //   break;
+    case 4:
+      startMode4(volume);
+      break;
   }
 }
 
@@ -217,9 +217,9 @@ void stopRound(int mode) {
     case 3:
       stopMode3();
       break;
-    // case 4:
-    //   stopMode4();
-    //   break;
+    case 4:
+      stopMode4();
+      break;
   }
 }
 
@@ -284,9 +284,7 @@ void startLoopTrack() {
   Serial.printf("Looping track #%u\n", trackNum);
 }
 
-///////////////////////
-// === WebSocket 이벤트 ===
-///////////////////////
+// websocket
 void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length) {
   clientNum = num;
   switch(type) {
@@ -306,7 +304,15 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length
       msg.trim();
       Serial.printf("[%u] RX: %s\n", num, msg.c_str());
 
-      char buf[64];  // 버퍼 크기는 상황에 맞게
+      // STOP 명령만 체크 (대문자 그대로 비교)
+      if (msg.equals("STOP")) {
+        Serial.println("== STOP command received ==");
+        isPlaying = false;   // 재생 중단
+        pendingStop = true;
+        break;
+      }
+
+      char buf[64];  
       msg.toCharArray(buf, sizeof(buf));
 
       char *token = strtok(buf, ",");
