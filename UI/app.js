@@ -423,6 +423,7 @@ document.addEventListener("DOMContentLoaded", () => {
     viewDataBtn.addEventListener("click", () => {
       showView("dataView");
       renderDataTable();
+      renderCharts();
     });
   }
 
@@ -474,6 +475,116 @@ document.addEventListener("DOMContentLoaded", () => {
       }
       localStorage.setItem("gameResults", JSON.stringify(data));
       renderDataTable();
+      renderCharts();
     });
   }
+  // ===== 차트 상태 =====
+  let chartRecent = null;
+  let chartAvg = null;
+
+  // 최근 15개 라운드 (세션 합쳐서 시간순)
+  function buildRecentRoundsData() {
+    const data = JSON.parse(localStorage.getItem("gameResults") || "[]");
+    // 세션 날짜 기준 오름차순
+    const sessions = data.slice().sort((a,b) => new Date(a.date) - new Date(b.date));
+
+    const rows = [];
+    sessions.forEach((s, sIdx) => {
+      (s.results || []).forEach(r => {
+        rows.push({
+          label: `${formatDate(s.date)} #${r.round}`,
+          attempts: Number(r.attempts) || 0,
+          time: Number(r.time) || 0
+        });
+      });
+    });
+
+    const last = rows.slice(-15);
+    return {
+      labels: last.map(x => x.label),
+      attempts: last.map(x => x.attempts),
+      times: last.map(x => x.time),
+    };
+  }
+
+  // 최근 15개 세트 평균 (세션별 평균)
+  function buildSessionAveragesData() {
+    const data = JSON.parse(localStorage.getItem("gameResults") || "[]");
+    const sessions = data.slice().sort((a,b) => new Date(a.date) - new Date(b.date));
+    const rows = sessions.map(s => {
+      const arr = s.results || [];
+      const n = arr.length || 1;
+      const sumAttempts = arr.reduce((t, r) => t + (Number(r.attempts) || 0), 0);
+      const sumTime = arr.reduce((t, r) => t + (Number(r.time) || 0), 0);
+      return {
+        label: formatDate(s.date),
+        attemptsAvg: +(sumAttempts / n).toFixed(2),
+        timeAvg: +(sumTime / n).toFixed(2),
+      };
+    });
+
+    const last = rows.slice(-15);
+    return {
+      labels: last.map(x => x.label),
+      attempts: last.map(x => x.attemptsAvg),
+      times: last.map(x => x.timeAvg),
+    };
+  }
+
+  // 차트 렌더(재호출 시 파괴 후 다시 그림)
+  function renderCharts() {
+    if (!window.Chart) return; // Chart.js 미로드 시 안전하게 패스
+
+    const ctx1 = document.getElementById("chartRecentRounds")?.getContext("2d");
+    const ctx2 = document.getElementById("chartSessionAverages")?.getContext("2d");
+
+    if (ctx1) {
+      const d1 = buildRecentRoundsData();
+      if (chartRecent) chartRecent.destroy();
+      chartRecent = new Chart(ctx1, {
+        type: "line",
+        data: {
+          labels: d1.labels,
+          datasets: [
+            { label: "성공 시도", data: d1.attempts, yAxisID: "y" },
+            { label: "소요 시간(초)", data: d1.times, yAxisID: "y1" }
+          ]
+        },
+        options: {
+          maintainAspectRatio: false,
+          interaction: { mode: "index", intersect: false },
+          scales: {
+            y:  { type: "linear", position: "left", title: { display: true, text: "성공 시도" } },
+            y1: { type: "linear", position: "right", grid: { drawOnChartArea: false },
+                  title: { display: true, text: "소요 시간(초)" } }
+          }
+        }
+      });
+    }
+
+    if (ctx2) {
+      const d2 = buildSessionAveragesData();
+      if (chartAvg) chartAvg.destroy();
+      chartAvg = new Chart(ctx2, {
+        type: "line",
+        data: {
+          labels: d2.labels,
+          datasets: [
+            { label: "평균 성공 시도", data: d2.attempts, yAxisID: "y" },
+            { label: "평균 소요 시간(초)", data: d2.times, yAxisID: "y1" }
+          ]
+        },
+        options: {
+          maintainAspectRatio: false,
+          interaction: { mode: "index", intersect: false },
+          scales: {
+            y:  { type: "linear", position: "left", title: { display: true, text: "성공 시도" } },
+            y1: { type: "linear", position: "right", grid: { drawOnChartArea: false },
+                  title: { display: true, text: "소요 시간(초)" } }
+          }
+        }
+      });
+    }
+  }
+
 });
