@@ -23,6 +23,7 @@ html, body { height: 100%; }
   --line:    #e6ebf2;        /* subtle borders */
   --text:    #1f2937;        /* gray-800 */
   --muted:   #6b7280;        /* gray-500 */
+  --mint-600: #0d9488;
 
   /* Shadows & radii */
   --shadow-sm: 0 2px 6px rgba(0,0,0,0.08);
@@ -70,7 +71,7 @@ header {
   top: 0;
   z-index: 10;
   /* ⬇️ 트렌디 그린(에메랄드 600) → 민트(버튼 색) 그라데이션 */
-  background: linear-gradient(135deg, #059669, #00bfa5);
+  background: linear-gradient(135deg, #02ceb3, #0cbf86);
   color: #fff;
   padding: 18px 20px;
   box-shadow: var(--shadow-md);
@@ -158,6 +159,26 @@ button:focus-visible {
   outline-offset: 2px;
 }
 
+/* 테스트 음 재생: 단색 민트(실행보다 덜 강조) */
+.test-btn{
+  background: var(--mint-600);   /* 단색 */
+  color: #fff;
+  box-shadow: var(--shadow-sm);  /* 낮은 그림자 */
+  font-weight: 600;              /* run-btn(700)보다 한 단계 낮게 */
+  transform: translateY(0);      /* 과한 호버 방지 */
+}
+.test-btn:hover{
+  filter: brightness(1.03);
+  transform: translateY(-1px);   /* run-btn보다 덜 튀게 */
+}
+.test-btn:active{ transform: translateY(0); }
+
+/* 다크 모드에서 약간 더 생기 있게 */
+@media (prefers-color-scheme: dark){
+  .test-btn{ background: #14b8a6; } /* teal-500 */
+}
+
+
 /* Primary action buttons */
 .run-btn, #viewDataBtn {
   background: linear-gradient(135deg, var(--accent), #1ec9b5);
@@ -183,6 +204,66 @@ button:focus-visible {
   transform: translateY(-1px);
 }
 
+
+/* ===== Option A: 카드형 모드 버튼 ===== */
+#homeView .modes-grid{
+  display: grid;
+  grid-template-columns: repeat(2, minmax(160px, 1fr));
+  gap: 14px;
+  margin-top: 12px;
+}
+@media (min-width: 720px){
+  #homeView .modes-grid{ grid-template-columns: repeat(4, 1fr); }
+}
+
+/* base button이 그라데를 가지므로 카드형은 명시적으로 덮어씀 */
+.mode-card{
+  background: var(--card) !important;
+  color: var(--text) !important;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  padding: 14px 16px;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+}
+.mode-card:hover{
+  transform: translateY(-2px);
+  box-shadow: 0 12px 28px rgba(20,184,166,.20);
+  border-color: rgba(20,184,166,.45);
+}
+
+/* 카드 상단(아이콘 + 칩) */
+.mode-top{ display:flex; align-items:center; justify-content:space-between; }
+.mode-icon{ font-size:26px; line-height:1; }
+.mode-title{ font-size:16px; font-weight:800; letter-spacing:.2px; }
+.mode-sub{ font-size:13px; color: var(--muted); }
+
+/* 칩을 오른쪽 상단에 고정(아이콘 없어도 우측 정렬 유지) */
+.mode-top .chip { margin-left: auto; }
+
+/* 스크린리더 전용 숨김 유틸리티 */
+.sr-only{
+  position:absolute!important; width:1px; height:1px; padding:0; margin:-1px;
+  overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0;
+}
+
+
+/* 칩(난이도/태그) */
+.chip{
+  display:inline-flex; align-items:center; gap:6px;
+  font-size:12px; font-weight:600;
+  padding:4px 10px; border-radius:999px; border:1px solid transparent;
+}
+.chip-easy{ background:#e6fbf5; color:#047857; border-color:#a7f3d0; }
+.chip-mid { background:#e7f7ef; color:#036857; border-color:#86efac; }
+.chip-hard{ background:#eef7f3; color:#065f46; border-color:#6ee7b7; }
+
+/* 데이터 보기 버튼 가운데 정렬 */
+#viewDataBtn{ display:block; margin:18px auto 0; }
 
 
 
@@ -235,69 +316,86 @@ input[type="range"]::-moz-range-thumb {
 }
 
 /* 7) Table & Scroll box ------------------------------------------------- */
-.scroll-box {
+/* 7) Table & Scroll box — Modern mint/emerald theme */
+.scroll-box{
   max-height: 360px;
   overflow: auto;
   border: 1px solid var(--line);
-  border-radius: var(--radius-md);
-  padding: 0 8px 8px; /* ← top만 0 */
+  border-radius: 16px;
+  padding: 0;                         /* 헤더를 테두리에 딱 붙게 */
   margin: 12px auto;
   width: min(100%, 840px);
   background: var(--card);
   box-shadow: var(--shadow-sm);
-
-
 }
 
-
-
-#dataTable {
-  border-collapse: collapse;
+/* 테이블 베이스 */
+#dataTable{
   width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
   font-size: 14px;
 }
-#dataTable thead th {
-  position: sticky; top: 0;
-  background: linear-gradient(180deg, var(--primary-500), var(--primary-600));
-  color: #fff;
-  text-align: left;
-  z-index: 2;/* 간격 띄우기*/
+
+/* 머리글: 민트↔에메랄드 그라데이션(사이트 헤더와 톤 맞춤) */
+#dataTable thead th{
+  position: sticky; top: 0; z-index: 5;
   padding: 12px 14px;
-}
-#dataTable td { padding: 12px 14px; border-bottom: 1px solid var(--line); }
-#dataTable tbody td { background: var(--card); } /* 투명도로 비침 방지 */
-
-#dataTable tr:hover { background: rgba(102,187,106,0.06); }
-#dataTable { border-collapse: separate; border-spacing: 0; } /* 보더 겹침 자체 제거 */
-
-/* 데이터 보기: 차트 카드 */
-.charts{
-  max-width: 840px;
-  margin: 14px auto 0;
-  display: grid;
-  gap: 14px;
-}
-.chart-card{
-  background: var(--card);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-sm);
-  padding: 12px;
-}
-.chart-card h3{
-  margin: 0 0 8px;
-  font-size: 16px;
-  color: var(--text);
+  text-align: left;
+  font-weight: 700; letter-spacing: .2px; color: #fff;
+  background: none; 
+  box-shadow: inset 0 -1px 0 rgba(0,0,0,.06);
 }
 
-.chart-box{ position:relative; height:240px; }         /* 원하는 높이 */
-.chart-box canvas{ display:block; width:100% !important; height:100% !important; }
+/* 홀수 열 헤더 */
+#dataTable thead th:nth-child(odd){
+  /* 에메랄드 → 틸 */
+  background: linear-gradient(135deg, #10b981,  #10b981);
+}
 
+/* 짝수 열 헤더 */
+#dataTable thead th:nth-child(even){
+  /* 라이트 민트 → 틸 */
+  background: linear-gradient(135deg, #2bb07f, #2bb07f);
+}
 
+/* 헤더 셀 사이 얇은 구분선 유지 */
+#dataTable thead th:not(:last-child){
+  box-shadow:
+    inset -1px 0 rgba(255,255,255,.18),
+    inset 0 -1px 0 rgba(0,0,0,.06);
+}
 
+/* 둥근 모서리(이미 있으니 유지) */
+#dataTable thead th:first-child{ border-top-left-radius: 12px; }
+#dataTable thead th:last-child { border-top-right-radius: 12px; }
 
-/* Delete button in rows */
-.row-delete {
+/* 본문 셀: 소프트 디바이더 + 은은한 지브라 + 호버 하이라이트 */
+#dataTable tbody td{
+  padding: 12px 14px;
+  background: var(--card);                 /* 스크롤시 비침 방지 */
+  border-bottom: 1px solid var(--line);    /* 얇은 디바이더 */
+}
+#dataTable tbody tr:nth-child(odd) td{
+  background: rgba(20,184,166,.03);        /* teal 500 @ 3% */
+}
+#dataTable tbody tr:hover td{
+  background: rgba(16,185,129,.10);        /* emerald 500 @ 10% */
+}
+
+/* 숫자열 정돈(우측 정렬 + 고정폭 숫자) */
+#dataTable th:nth-child(3),
+#dataTable th:nth-child(4),
+#dataTable th:nth-child(5),
+#dataTable td:nth-child(3),
+#dataTable td:nth-child(4),
+#dataTable td:nth-child(5){
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 삭제 버튼(미니멀) */
+.row-delete{
   background: transparent;
   border: none;
   font-size: 18px;
@@ -307,10 +405,34 @@ input[type="range"]::-moz-range-thumb {
   border-radius: 8px;
   color: #d32f2f;
 }
-.row-delete:hover {
+.row-delete:hover{
   background-color: #d32f2f;
-  color: #ffffff;
+  color: #fff;
 }
+
+/* 다크 모드 보정 */
+@media (prefers-color-scheme: dark){
+  .scroll-box{ border-color: #1f2430; }
+
+  /* 🔄 통짜 배경 제거하고 홀/짝으로 분기 */
+  #dataTable thead th:nth-child(odd){
+    background: linear-gradient(135deg, #059669, #10b981);
+  }
+  #dataTable thead th:nth-child(even){
+    background: linear-gradient(135deg, #0d9488, #14b8a6);
+  }
+
+  #dataTable thead th:not(:last-child){
+    box-shadow:
+      inset -1px 0 rgba(255,255,255,.10),
+      inset 0 -1px 0 rgba(0,0,0,.35);
+  }
+
+  #dataTable tbody td{ background: #151a21; border-bottom-color: #1f2430; }
+  #dataTable tbody tr:nth-child(odd) td{ background: rgba(20,184,166,.06); }
+  #dataTable tbody tr:hover td{ background: rgba(16,185,129,.18); }
+}
+
 
 /* 8) Footer ------------------------------------------------------------- */
 footer {
@@ -351,6 +473,34 @@ footer small { opacity: 0.85; }
   font-weight: 700;
   letter-spacing: 0.2px;
 }
+
+/* ==== Tabs (표/그래프) ==== */
+.tabs{ margin-top: 8px; }
+.tab-list{
+  display: flex; gap: 8px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 12px;
+}
+.tab{
+  appearance: none; border: none; cursor: pointer;
+  padding: 10px 14px; border-radius: 10px 10px 0 0;
+  background: #eef7f5; color: #0f766e;  /* 민트 톤 연한 탭 */
+  font-weight: 700;
+}
+.tab:hover{ filter: brightness(1.02); }
+.tab.active{
+  background: linear-gradient(135deg, #059669, #00bfa5); /* 헤더와 톤 맞춤 */
+  color: #fff;
+  box-shadow: 0 6px 14px rgba(0,0,0,.08);
+}
+
+.tab-panel{ display: none; }
+.tab-panel.active{ display: block; }
+
+/* 그래프 패널에서 카드들이 위아래로 깔끔히 붙도록 */
+#panel-graphs .chart-card{ margin-bottom: 12px; }
+#panel-graphs .chart-card:last-child{ margin-bottom: 0; }
+
 
 
 

@@ -131,6 +131,21 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     });
   }
+  // === WebSocket 연결 상태 체크 & 경고 ===
+  function isWsOpen() {
+    return socket && socket.readyState === WebSocket.OPEN;
+  }
+  function guardWsOrAlert() {
+    if (isWsOpen()) return true;
+
+    // (옵션) 완전히 끊겨 있으면 재연결 시도
+    if (!socket || socket.readyState === WebSocket.CLOSED) {
+      try { connectToWebSocket(); } catch {}
+    }
+
+    alert("허브와의 WebSocket이 연결되지 않았습니다.\n같은 Wi-Fi인지 확인한 뒤, 연결된 상태에서 다시 실행을 눌러주세요.");
+    return false;
+  }
 
 
   function safeSend(message) {
@@ -200,11 +215,18 @@ document.addEventListener("DOMContentLoaded", () => {
         const attempts = parseInt(text.split(",")[1], 10); // 숫자 보장
         console.log("correct", attempts);
 
-        const elapsedSec = Math.max(0, Math.round((performance.now() - startTime) / 1000));
+        const elapsedMs = Math.max(0, performance.now() - startTime);        // ← ms
+        const elapsedSec = Number((elapsedMs / 1000).toFixed(1));  
         const roundNum = curr + 1;
 
         // 결과 기록
-        results.push({ mode, round: roundNum, time: elapsedSec, attempts });
+        results.push({
+          mode,
+          round: roundNum,
+          timeMs: Math.round(elapsedMs),   // 숫자(ms)
+          time: elapsedSec,                // 숫자(초, 1자리) — 기존 코드 호환용
+          attempts
+        });
 
         curr++;
         if (curr < totalRounds) {
@@ -268,6 +290,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const m1Run = document.getElementById("m1Run");
   if (m1Run) {
     m1Run.addEventListener("click", async () => {
+      if (!guardWsOrAlert()) return;   // ✅ 연결 안 되어 있으면 중단
       const reps = +document.getElementById("m1_reps").value || 10;
       alert(`[연습모드 시작] 라운드: ${reps}\n정답이 오면 다음 라운드로 진행합니다.`);
       showView("gameView"); 
@@ -305,6 +328,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   if (m2Run) {
     m2Run.addEventListener("click", async () => {
+      if (!guardWsOrAlert()) return;   // ✅ 연결 안 되어 있으면 중단
       const rounds = m2Rounds ? +m2Rounds.value : 5;
       const volume = m2VolumeInput ? +m2VolumeInput.value : 80;
 
@@ -348,6 +372,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   if (m3Run) {
     m3Run.addEventListener("click", async () => {
+      if (!guardWsOrAlert()) return;   // ✅ 연결 안 되어 있으면 중단
       const rounds = +document.getElementById("m3_rounds").value || 7;
       const volume = m3VolumeInput ? +m3VolumeInput.value : 80;
 
@@ -384,6 +409,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   if (m4TestBtn) {
     m4TestBtn.addEventListener("click", () => {
+      if (!guardWsOrAlert()) return;   // ✅ 연결 안 되어 있으면 중단
       const vol = m4VolumeInput ? Number(m4VolumeInput.value) : 80;
       safeSend(`TEST,${vol}`);
     });
@@ -409,12 +435,47 @@ document.addEventListener("DOMContentLoaded", () => {
   // =========================================================
   // 8) 데이터 보기 화면
   // =========================================================
+  // ===== 데이터 보기 탭 로직 =====
+  const tabTable   = document.getElementById("tab-table");
+  const tabGraphs  = document.getElementById("tab-graphs");
+  const panelTable = document.getElementById("panel-table");
+  const panelGraphs= document.getElementById("panel-graphs");
+
+  // 탭 전환 유틸
+  function switchTab(target){  // 'table' | 'graphs'
+    const isTable = target === 'table';
+
+    tabTable?.classList.toggle("active", isTable);
+    tabGraphs?.classList.toggle("active", !isTable);
+    tabTable?.setAttribute("aria-selected", isTable ? "true" : "false");
+    tabGraphs?.setAttribute("aria-selected", !isTable ? "true" : "false");
+
+    panelTable?.classList.toggle("active", isTable);
+    panelGraphs?.classList.toggle("active", !isTable);
+
+    if (!isTable){
+      // 그래프 탭 열릴 때만 렌더 (숨김 상태 렌더 이슈 방지)
+      renderCharts();
+    }
+  }
+
+  tabTable?.addEventListener("click", () => switchTab('table'));
+  tabGraphs?.addEventListener("click", () => switchTab('graphs'));
+
+
   const viewDataBtn = document.getElementById("viewDataBtn");
   if (viewDataBtn) {
     viewDataBtn.addEventListener("click", () => {
       showView("dataView");
+      document.getElementById("tab-table")?.classList.add("active");
+      document.getElementById("tab-table")?.setAttribute("aria-selected", "true");
+      document.getElementById("panel-table")?.classList.add("active");
+
+      document.getElementById("tab-graphs")?.classList.remove("active");
+      document.getElementById("tab-graphs")?.setAttribute("aria-selected", "false");
+      document.getElementById("panel-graphs")?.classList.remove("active");
       renderDataTable();
-      renderCharts();
+     // renderCharts();
     });
   }
 
@@ -436,14 +497,19 @@ document.addEventListener("DOMContentLoaded", () => {
       const dateStr = formatDate(session.date);
       session.results.forEach((r, rIdx) => {
         const tr = document.createElement("tr");
+        // tr.innerHTML 만들기 직전에 한 줄 추가
+        const timeStr = (Number(r.time) || 0).toFixed(1);
+
+        // 그리고 템플릿에서 r.time 대신 timeStr 사용
         tr.innerHTML = `
           <td>${dateStr}</td>
           <td>${sIdx + 1} (${modeLabel(session.mode)})</td>
           <td>${r.round}</td>
           <td>${r.attempts}</td>
-          <td>${r.time}</td>
+          <td>${timeStr}</td>      <!-- ← 여기! -->
           <td><button class="row-delete" data-sidx="${sIdx}" data-ridx="${rIdx}" title="삭제">&times;</button></td>
         `;
+
         tbody.appendChild(tr);
       });
     });
@@ -510,7 +576,7 @@ document.addEventListener("DOMContentLoaded", () => {
       return {
         label: formatDate(s.date),
         attemptsAvg: +(sumAttempts / n).toFixed(2),
-        timeAvg: +(sumTime / n).toFixed(2),
+        timeAvg: +(sumTime / n).toFixed(1),
       };
     });
 
@@ -545,9 +611,24 @@ document.addEventListener("DOMContentLoaded", () => {
           maintainAspectRatio: false,
           interaction: { mode: "index", intersect: false },
           scales: {
-            y:  { type: "linear", position: "left", title: { display: true, text: "성공 시도" } },
-            y1: { type: "linear", position: "right", grid: { drawOnChartArea: false },
-                  title: { display: true, text: "소요 시간(초)" } }
+            x: { display: false },
+            y: {
+            type: "linear",
+            position: "left",
+            min: 0,                 // ✅ 항상 0부터
+            beginAtZero: true,      // ✅ 보정
+            ticks: {
+              stepSize: 1,          // ✅ 1씩 증가(정수 눈금)
+              callback: (value) => (Number.isInteger(value) ? value : ""), // ✅ 정수만 라벨 표기
+            },
+            title: { display: true, text: "성공 시도" }
+            },
+            y1: {
+              type: "linear",
+              position: "right",
+              grid: { drawOnChartArea: false },
+              title: { display: true, text: "소요 시간(초)" }
+            }
           }
         }
       });
@@ -569,6 +650,7 @@ document.addEventListener("DOMContentLoaded", () => {
           maintainAspectRatio: false,
           interaction: { mode: "index", intersect: false },
           scales: {
+            x: { display: false },
             y:  { type: "linear", position: "left", title: { display: true, text: "성공 시도" } },
             y1: { type: "linear", position: "right", grid: { drawOnChartArea: false },
                   title: { display: true, text: "소요 시간(초)" } }
