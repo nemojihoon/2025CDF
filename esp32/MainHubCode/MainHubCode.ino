@@ -289,13 +289,19 @@ void startLoopTrack() {
 }
 
 void correctSound() {
-  neopixelOff();
+  if(mode == 1 || mode == 2) {
+    neopixelOff();
+  } else {
+    uint32_t c = ring.Color(80, 180, 120);
+    neopixelAll(c);
+  }
   player.stop();
   trackNum = 3;
   startLoopTrack();
   delay(500);
   trackNum = 0;
   player.stop();
+  neopixelOff();
 }
 
 // websocket
@@ -440,6 +446,8 @@ void loop() {
     String msg = "CORRECT," + String(failCnt+1);
     webSocket.sendTXT(clientNum, msg);
     failCnt = 0;
+    mode = 0;
+    volume = 0;
   }
 
   if(pendingQuit) {

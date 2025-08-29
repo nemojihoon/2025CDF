@@ -284,13 +284,19 @@ void startLoopTrack() {
 }
 
 void correctSound() {
-  neopixelOff();
+  if(mode == 1 || mode == 2) {
+    neopixelOff();
+  } else {
+    uint32_t c = ring.Color(80, 180, 120);
+    neopixelAll(c);
+  }
   player.stop();
   trackNum = 3;
   startLoopTrack();
   delay(500);
   trackNum = 0;
   player.stop();
+  neopixelOff();
 }
 
 void setup() {
@@ -353,10 +359,13 @@ void loop() {
     pendingStart = false;
     startRound(mode, volume);
   }
+
   if (pendingStop) {
     pendingStop = false;
     isPlaying = false;
     stopRound(mode);
+    mode = 0;
+    volume = 0;
   }
 
   if (player.available() && isPlaying && trackNum != 0) {
