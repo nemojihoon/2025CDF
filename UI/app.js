@@ -143,7 +143,7 @@ document.addEventListener("DOMContentLoaded", () => {
       try { connectToWebSocket(); } catch {}
     }
 
-    alert("허브와의 WebSocket이 연결되지 않았습니다.\n같은 Wi-Fi인지 확인한 뒤, 연결된 상태에서 다시 실행을 눌러주세요.");
+    alert("장치가 발견되지 않았습니다. 연결된 상태를 확인한 뒤 다시 실행시켜주세요.");
     return false;
   }
 
