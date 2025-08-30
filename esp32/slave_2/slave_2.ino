@@ -77,6 +77,16 @@ void IRAM_ATTR onVibrationISR() {
   vibISRFlag = true;
 }
 
+// dfplayer
+int calcVolume(int percent, float scale = 1.0) {
+  return constrain((int)(percent * scale * 20 / 100.0), 0, 30);
+}
+
+void startLoopTrack() {
+  player.playMp3Folder(trackNum);
+  Serial.printf("Looping track #%u\n", trackNum);
+}
+
 // espnow
 void formatMacAddress(const uint8_t *macAddr, char *buffer, int maxLength) {
   snprintf(buffer, maxLength, "%02x:%02x:%02x:%02x:%02x:%02x",
@@ -236,7 +246,7 @@ void startMode2(int volume) {
   if(isMe) {
     uint32_t c = randomColor();
     neopixelAll(c);
-    player.volume(constrain((volume * 25) / 100, 0, 30));
+    player.volume(calcVolume(volume));
     trackNum = 1;
     startLoopTrack();
   }
@@ -244,7 +254,7 @@ void startMode2(int volume) {
 
 void startMode3(int volume) {
   if(isMe) {
-    player.volume(constrain((volume * 25) / 100, 0, 30));
+    player.volume(calcVolume(volume));
     trackNum = 1;
     startLoopTrack();
   }
@@ -253,10 +263,10 @@ void startMode3(int volume) {
 void startMode4(int volume) {
   if(isMe) {
     trackNum = 1;
-    player.volume(constrain((volume * 25) / 100, 0, 30));
+    player.volume(calcVolume(volume));
   } else {
     trackNum = 2;
-    player.volume(constrain((volume * 0.8 * 25) / 100, 0, 30));
+    player.volume(calcVolume(volume, 0.8));
   }
   startLoopTrack();
 }
@@ -277,11 +287,6 @@ void stopMode4() {
   neopixelOff();
   player.stop();
   trackNum = 0;
-}
-
-void startLoopTrack() {
-  player.playMp3Folder(trackNum);
-  Serial.printf("Looping track #%u\n", trackNum);
 }
 
 void correctEffect() {
