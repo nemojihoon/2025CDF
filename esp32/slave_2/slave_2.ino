@@ -4,6 +4,7 @@
 #include <WebSocketsServer.h>
 #include <Adafruit_NeoPixel.h>
 #include <esp_now.h>
+#include <HardwareSerial.h>
 #include <DFRobotDFPlayerMini.h>
 
 // WiFiMulti WiFiMulti;
@@ -20,7 +21,7 @@ const uint8_t PEERS[5][6] = {
 };
 
 // neopixel
-#define NEOPIXEL_PIN   16      // 데이터핀 (필요시 변경)
+#define NEOPIXEL_PIN   16    // 데이터핀 (필요시 변경)
 #define NUM_LEDS       12
 Adafruit_NeoPixel ring(NUM_LEDS, NEOPIXEL_PIN, NEO_GRB + NEO_KHZ800);
 
@@ -283,7 +284,7 @@ void startLoopTrack() {
   Serial.printf("Looping track #%u\n", trackNum);
 }
 
-void correctSound() {
+void correctEffect() {
   if(mode == 1 || mode == 2) {
     neopixelOff();
   } else {
@@ -396,7 +397,7 @@ void loop() {
     if(isMe) {
       isMe = false;
       pendingStop = true;
-      correctSound();
+      correctEffect();
       for(int i = 1; i <= 4; i++) {
         if(i == ID) continue;
         unicast(PEERS[i], "CORRECT");
