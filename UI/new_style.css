@@ -178,8 +178,29 @@ button:focus-visible {
   .test-btn{ background: #14b8a6; } /* teal-500 */
 }
 
-
 /* Primary action buttons */
+/* 홈 하단 CTA(데이터 보기 / 점수판) 버튼 줄 */
+/* 홈 하단 CTA(게임/데이터/점수판) */
+.home-cta{
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: 18px;
+}
+
+/* 기존 #viewDataBtn이 중앙 정렬되던 규칙을 홈에서만 무효화 */
+#homeView #viewDataBtn{ display: inline-flex; margin: 0; }
+
+
+/* 점수판 버튼은 중립 톤 유지(secondary 사용 중이라면 그대로 OK) */
+#homeView #viewScoreboardBtn{
+  /* 필요시 살짝 톤만 보정 가능
+  background: linear-gradient(180deg, #eef2f7, #e6ebf2);
+  color: #111827;
+  */
+}
+  
 .run-btn, #viewDataBtn {
   background: linear-gradient(135deg, var(--accent), #1ec9b5);
   color: #fff;
@@ -206,15 +227,17 @@ button:focus-visible {
 
 
 /* ===== Option A: 카드형 모드 버튼 ===== */
-#homeView .modes-grid{
+#modesView .modes-grid{
   display: grid;
   grid-template-columns: repeat(2, minmax(160px, 1fr));
   gap: 14px;
   margin-top: 12px;
 }
 @media (min-width: 720px){
-  #homeView .modes-grid{ grid-template-columns: repeat(4, 1fr); }
+  #modesView .modes-grid{ grid-template-columns: repeat(4, 1fr); }
 }
+
+
 
 /* base button이 그라데를 가지므로 카드형은 명시적으로 덮어씀 */
 .mode-card{
