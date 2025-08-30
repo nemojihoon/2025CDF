@@ -75,7 +75,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // =========================================================
   // 2) WebSocket
   // =========================================================
-  const ESP32_IP = "192.168.0.6"; // 허브 ESP32 IP
+  const ESP32_IP = "192.168.0.7"; // 허브 ESP32 IP
   const PORT = 81;
   const SERVER_URL = `ws://${ESP32_IP}:${PORT}`;
 
