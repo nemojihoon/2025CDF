@@ -269,6 +269,11 @@ document.addEventListener("DOMContentLoaded", () => {
   // =========================================================
   // 3) 홈 화면 네비게이션
   // =========================================================
+  const goPlayBtn = document.getElementById("goPlayBtn");
+  if (goPlayBtn) {
+    goPlayBtn.addEventListener("click", () => showView("modesView"));
+  }
+
   const btn1 = document.getElementById("btn1");
   const btn2 = document.getElementById("btn2");
   const btn3 = document.getElementById("btn3");
@@ -615,7 +620,7 @@ document.addEventListener("DOMContentLoaded", () => {
             y: {
             type: "linear",
             position: "left",
-            min: 0,                 // ✅ 항상 0부터
+            min: 0,                 // ✅ 항상 0부터i
             beginAtZero: true,      // ✅ 보정
             ticks: {
               stepSize: 1,          // ✅ 1씩 증가(정수 눈금)
@@ -659,5 +664,30 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     }
   }
+  // (네비게이션 영역 근처) 홈 화면 버튼 레퍼런스에 추가
+  const viewScoreboardBtn = document.getElementById("viewScoreboardBtn");
+
+  // 점수판 이동
+  if (viewScoreboardBtn) {
+    viewScoreboardBtn.addEventListener("click", () => {
+      showView("scoreboardView");
+      renderScoreboard(); // 아래의 골격 함수
+    });
+  }
+
+  // 점수판 렌더링 골격(다음 단계에서 실제 UI/데이터 바인딩)
+  function renderScoreboard(){
+    const box = document.getElementById("scoreboardContainer");
+    if (!box) return;
+    box.innerHTML = `
+      <div class="chart-card">
+        <h3>점수판(준비 중)</h3>
+        <p class="center" style="margin:12px 0; color: var(--muted);">
+          다음 단계에서 디자인/정렬/정렬옵션 등을 붙일게요.
+        </p>
+      </div>
+    `;
+  }
+  
 
 });

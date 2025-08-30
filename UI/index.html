@@ -13,8 +13,19 @@
 
   <main>
     <!-- 홈 화면 -->
+    <!-- 기존 homeView 안의 .modes-grid 전체를 삭제하고 이 블록으로 교체 -->
     <section id="homeView" class="view active">
-      <p>난이도를 선택하세요.</p>
+      <p>Home</p>
+
+      <div class="home-cta">
+        <button id="goPlayBtn" class="run-btn">게임하러 가기</button>
+        <button id="viewDataBtn">데이터 보기</button>
+        <button id="viewScoreboardBtn" class="secondary">점수판</button>
+      </div>
+    </section>
+
+    <section id="modesView" class="view">
+      <h2>모드 선택</h2>
       <div class="modes-grid">
         <button class="mode-card" id="btn1" aria-label="Tapping 연습모드 열기">
           <span class="mode-top">
@@ -58,10 +69,12 @@
         </button>
       </div>
 
-
-
-      <button id="viewDataBtn">데이터 보기</button>
+      <div class="actions">
+        <button class="secondary" data-back>뒤로가기</button>
+      </div>
     </section>
+
+
 
     <!-- 모드 1: Tapping 연습모드 -->
     <!-- 모드 1: Tapping 연습모드 -->
@@ -199,8 +212,17 @@
       </div>
     </section>
 
+    <!-- 새 화면: 점수판 섹션 추가 (dataView 아래 아무 곳이나 OK) -->
+    <section id="scoreboardView" class="view">
+      <h2>점수판</h2>
+      <p>점수판 UI는 다음 단계에서 디자인을 붙일게요.</p>
+      <div id="scoreboardContainer"></div>
 
-
+      <div class="actions">
+        <button class="secondary" data-back>뒤로가기</button>
+      </div>
+    </section>
+    
   </main>
 
   <footer>
