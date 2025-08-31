@@ -4,6 +4,7 @@
 #include <WebSocketsServer.h>
 #include <Adafruit_NeoPixel.h>
 #include <esp_now.h>
+#include <HardwareSerial.h>
 #include <DFRobotDFPlayerMini.h>
 
 // WiFiMulti WiFiMulti;
@@ -20,7 +21,7 @@ const uint8_t PEERS[5][6] = {
 };
 
 // neopixel
-#define NEOPIXEL_PIN   16      // 데이터핀 (필요시 변경)
+#define NEOPIXEL_PIN   16    // 데이터핀 (필요시 변경)
 #define NUM_LEDS       12
 Adafruit_NeoPixel ring(NUM_LEDS, NEOPIXEL_PIN, NEO_GRB + NEO_KHZ800);
 
@@ -74,6 +75,16 @@ void IRAM_ATTR onVibrationISR() {
   if (now - vibLastMs < VIB_DEBOUNCE_MS) return;
   vibLastMs = now;
   vibISRFlag = true;
+}
+
+// dfplayer
+int calcVolume(int percent, float scale = 1.0) {
+  return constrain((int)(percent * scale * 20 / 100.0), 0, 30);
+}
+
+void startLoopTrack() {
+  player.playMp3Folder(trackNum);
+  Serial.printf("Looping track #%u\n", trackNum);
 }
 
 // espnow
@@ -235,7 +246,7 @@ void startMode2(int volume) {
   if(isMe) {
     uint32_t c = randomColor();
     neopixelAll(c);
-    player.volume(constrain((volume * 25) / 100, 0, 30));
+    player.volume(calcVolume(volume));
     trackNum = 1;
     startLoopTrack();
   }
@@ -243,7 +254,7 @@ void startMode2(int volume) {
 
 void startMode3(int volume) {
   if(isMe) {
-    player.volume(constrain((volume * 25) / 100, 0, 30));
+    player.volume(calcVolume(volume));
     trackNum = 1;
     startLoopTrack();
   }
@@ -252,10 +263,10 @@ void startMode3(int volume) {
 void startMode4(int volume) {
   if(isMe) {
     trackNum = 1;
-    player.volume(constrain((volume * 25) / 100, 0, 30));
+    player.volume(calcVolume(volume));
   } else {
     trackNum = 2;
-    player.volume(constrain((volume * 0.8 * 25) / 100, 0, 30));
+    player.volume(calcVolume(volume, 0.8));
   }
   startLoopTrack();
 }
@@ -278,12 +289,7 @@ void stopMode4() {
   trackNum = 0;
 }
 
-void startLoopTrack() {
-  player.playMp3Folder(trackNum);
-  Serial.printf("Looping track #%u\n", trackNum);
-}
-
-void correctSound() {
+void correctEffect() {
   if(mode == 1 || mode == 2) {
     neopixelOff();
   } else {
@@ -396,7 +402,7 @@ void loop() {
     if(isMe) {
       isMe = false;
       pendingStop = true;
-      correctSound();
+      correctEffect();
       for(int i = 1; i <= 4; i++) {
         if(i == ID) continue;
         unicast(PEERS[i], "CORRECT");
