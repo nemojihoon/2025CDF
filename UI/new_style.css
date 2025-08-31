@@ -664,6 +664,19 @@ footer small { opacity: 0.85; }
   .score-header .badge{ background:#073b36; color:#a7f3d0; border-color:#115e59; }
 }
 
+/* 홈 메트릭 줄바꿈 보정 */
+
+.home-metrics li{ word-break: keep-all; }          /* 한글 음절 단위 줄바꿈 금지 */
+.home-metrics .metric-label{ white-space: nowrap; }/* '최근 활동' 한 줄 고정 */
+#hmLast {
+  margin-left: auto;
+  display: block;
+  text-align: right;
+  white-space: normal;
+}
+
+                   /* 날짜·시간 한 줄 고정 */
+
 
 
 /* 11) Keep backward-compat for existing selectors from old CSS ---------- */
