@@ -249,6 +249,12 @@ document.addEventListener("DOMContentLoaded", () => {
         renderDataTable();
       }
     }
+    if (results.length === totalRounds) {
+      incrementSB();
+      if (document.getElementById("scoreboardView")?.classList.contains("active")) {
+        renderScoreboard();
+      }
+    }
     showView(`mode${mode}View`); // ✅ 게임 끝나면 원래 모드 화면으로 복귀
   }
 
@@ -414,7 +420,6 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   if (m4TestBtn) {
     m4TestBtn.addEventListener("click", () => {
-      if (!guardWsOrAlert()) return;   // ✅ 연결 안 되어 있으면 중단
       const vol = m4VolumeInput ? Number(m4VolumeInput.value) : 80;
       safeSend(`TEST,${vol}`);
     });
@@ -666,6 +671,8 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   // (네비게이션 영역 근처) 홈 화면 버튼 레퍼런스에 추가
   const viewScoreboardBtn = document.getElementById("viewScoreboardBtn");
+  document.getElementById("sbPraiseBtn")?.addEventListener("click", handlePraiseClick);
+
 
   // 점수판 이동
   if (viewScoreboardBtn) {
