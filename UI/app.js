@@ -3,6 +3,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // =========================================================
   // 0) 상수/매핑
   // =========================================================
+  renderHomeMeta();
   const MODE_NAMES = {
     1: "Tapping 연습모드",
     2: "Sound & Light (하)",
@@ -17,6 +18,7 @@ document.addEventListener("DOMContentLoaded", () => {
     document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
     const target = document.getElementById(id);
     if (target) target.classList.add("active");
+    if (id === "homeView") renderHomeMeta();
     window.scrollTo(0, 0);
   }
 
@@ -275,6 +277,22 @@ document.addEventListener("DOMContentLoaded", () => {
   // =========================================================
   // 3) 홈 화면 네비게이션
   // =========================================================
+  // ===== 홈 메트릭 요약 =====
+  function renderHomeMeta(){
+    const data = JSON.parse(localStorage.getItem("gameResults") || "[]");
+    const sessions = data.length;
+    const lastISO = sessions ? data[data.length - 1].date : null;
+
+    const sbRaw = localStorage.getItem("scoreboardState");
+    let sb = { target: 5, progress: 0 };
+    try { sb = Object.assign(sb, JSON.parse(sbRaw || "{}")); } catch {}
+
+    document.getElementById("hmSessions")?.replaceChildren(document.createTextNode(String(sessions)));
+    document.getElementById("hmLast")?.replaceChildren(document.createTextNode(lastISO ? formatDate(lastISO) : "기록 없음"));
+    document.getElementById("hmProg")?.replaceChildren(document.createTextNode(String(sb.progress || 0)));
+    document.getElementById("hmGoal")?.replaceChildren(document.createTextNode(String(sb.target || 5)));
+  }
+
   const goPlayBtn = document.getElementById("goPlayBtn");
   if (goPlayBtn) {
     goPlayBtn.addEventListener("click", () => showView("modesView"));
@@ -292,7 +310,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // 뒤로가기(공통)
   document.querySelectorAll("[data-back]").forEach(btn => {
-    btn.addEventListener("click", () => showView("homeView"));
+    btn.addEventListener("click", () => {
+      showView("homeView");
+      renderHomeMeta();
+    });
   });
 
   // =========================================================
@@ -766,6 +787,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     saveSB(s);
     renderScoreboard();
+    renderHomeMeta();
   }
 
 

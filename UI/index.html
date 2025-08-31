@@ -13,16 +13,33 @@
 
   <main>
     <!-- 홈 화면 -->
-    <!-- 기존 homeView 안의 .modes-grid 전체를 삭제하고 이 블록으로 교체 -->
     <section id="homeView" class="view active">
-      <p>Home</p>
+      <div class="home-hero">
+        <div class="home-head">
+          <h2>모드 시작</h2>
+          <p class="home-sub">원하는 모드를 선택해 연습을 시작해보세요.</p>
+        </div>
 
-      <div class="home-cta">
-        <button id="goPlayBtn" class="run-btn">게임하러 가기</button>
-        <button id="viewDataBtn">데이터 보기</button>
-        <button id="viewScoreboardBtn" class="secondary">점수판</button>
+        <!-- CTA 묶음: 1행(Primary) + 2행(Secondary 2열) -->
+        <div class="home-cta home-cta--stack">
+          <button id="goPlayBtn" class="run-btn home-cta__primary">게임하러 가기</button>
+
+          <div class="home-cta__row">
+            <button id="viewDataBtn" class="secondary">데이터 보기</button>
+            <button id="viewScoreboardBtn" class="secondary">점수판</button>
+          </div>
+        </div>
+
+        <!-- 간단 메트릭(옵션) : 최근/누적/보상 진행도 -->
+        <ul class="home-metrics" aria-label="빠른 요약">
+          <li><span class="metric-label">최근 활동</span><strong id="hmLast">—</strong></li>
+          <li><span class="metric-label">누적 세트</span><strong id="hmSessions">0</strong></li>
+          <!-- 누적 세션인데 누적 세트로 바꿈. 관련 변수는 전부 session이므로 유의!  -->
+          <li><span class="metric-label">보상 진행</span><strong><span id="hmProg">0</span>/<span id="hmGoal">5</span></strong></li>
+        </ul>
       </div>
     </section>
+
 
     <section id="modesView" class="view">
       <h2>모드 선택</h2>

@@ -181,16 +181,25 @@ button:focus-visible {
 /* Primary action buttons */
 /* 홈 하단 CTA(데이터 보기 / 점수판) 버튼 줄 */
 /* 홈 하단 CTA(게임/데이터/점수판) */
+/* 홈 레이아웃: 1행(전체) + 2행(반반) */
 .home-cta{
-  display: flex;
+  display: grid;
   gap: 12px;
-  justify-content: center;
-  flex-wrap: wrap;
-  margin-top: 18px;
+  max-width: 520px;       /* 너무 넓지 않게 */
+  margin: 18px auto 0;
 }
+.home-cta .cta-row{ display: grid; grid-template-columns: 1fr; }
+.home-cta .cta-row.two{ grid-template-columns: 1fr 1fr; gap: 12px; }
+.home-cta button{ width: 100%; }
 
-/* 기존 #viewDataBtn이 중앙 정렬되던 규칙을 홈에서만 무효화 */
-#homeView #viewDataBtn{ display: inline-flex; margin: 0; }
+/* 데이터 보기 버튼을 점수판과 동일한 회색(secondary)로 */
+#viewDataBtn.secondary{
+  /* 혹시 이전에 #viewDataBtn에 그라데가 남아있다면 덮어쓰기 */
+  background: linear-gradient(180deg, #edf2f7, #e6ebf2);
+  color: #111827;
+  box-shadow: var(--shadow-sm);
+}
+#homeView #viewDataBtn{ margin: 0; display: inline-flex; } /* 기존 정렬 보정 유지 */
 
 
 /* 점수판 버튼은 중립 톤 유지(secondary 사용 중이라면 그대로 OK) */
@@ -200,8 +209,10 @@ button:focus-visible {
   color: #111827;
   */
 }
+
+
   
-.run-btn, #viewDataBtn {
+.run-btn {
   background: linear-gradient(135deg, var(--accent), #1ec9b5);
   color: #fff;
   font-size: 17px;
@@ -210,9 +221,7 @@ button:focus-visible {
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-md);
 }
-.run-btn:hover, #viewDataBtn:hover {
-  transform: translateY(-2px) scale(1.01);
-}
+.run-btn:hover { transform: translateY(-2px) scale(1.01); }
 
 /* Secondary (neutral) */
 .secondary {
@@ -287,7 +296,6 @@ button:focus-visible {
 
 /* 데이터 보기 버튼 가운데 정렬 */
 #viewDataBtn{ display:block; margin:18px auto 0; }
-
 
 
 /* 6) Forms -------------------------------------------------------------- */
@@ -482,6 +490,86 @@ footer small { opacity: 0.85; }
   border-color: rgba(0,191,165,0.5);
   box-shadow: var(--shadow-md);
 }
+
+/* 홈 카드 헤더와 분위기(2,3번 화면 톤과 통일) */
+#homeView .home-hero{
+  position: relative;
+  padding: 8px 4px 4px;   /* 타이틀 여백 */
+}
+
+/* 상단 타이틀 영역 */
+#homeView .home-head h2{
+  font-size: clamp(22px, 2.6vw, 28px);
+  margin: 0 0 6px;
+}
+#homeView .home-sub{
+  margin: 0 0 18px;
+  color: var(--muted);
+}
+
+/* 카드 내부 은은한 배경 하이라이트 */
+#homeView.view{
+  overflow: hidden;
+}
+#homeView.view::before{
+  content:"";
+  position:absolute; inset:-20% -10% auto -10%;
+  height: 180px;
+  background:
+    radial-gradient(600px 220px at 50% 0%, rgba(16,185,129,.18), transparent 60%),
+    radial-gradient(500px 200px at 10% 20%, rgba(20,184,166,.12), transparent 70%);
+  filter: blur(6px);
+  pointer-events:none;
+}
+
+/* CTA 레이아웃: 1행 꽉 찬 Primary, 2행 2열 Secondary */
+.home-cta--stack{ display: grid; gap: 14px; }
+.home-cta__primary{ width: 100%; padding: 16px 28px; border-radius: 14px; }
+
+.home-cta__row{
+  display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+}
+#homeView .secondary{
+  padding: 14px 18px;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #eef2f7, #e6ebf2);
+  color: #0f172a;
+  box-shadow: var(--shadow-sm);
+  font-weight: 700;
+}
+#homeView .secondary:hover{
+  transform: translateY(-1px);
+  box-shadow: 0 8px 18px rgba(0,0,0,.08);
+}
+
+/* 빠른 메트릭(칩 느낌) */
+.home-metrics{
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0,1fr));
+  gap: 10px;
+  margin: 8px 0 2px; padding: 0; list-style: none;
+}
+.home-metrics li{
+  display:flex; align-items:center; justify-content:space-between;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #f7fbfa;
+  box-shadow: var(--shadow-sm);
+  font-variant-numeric: tabular-nums;
+}
+.home-metrics .metric-label{ color: var(--muted); font-size: 14px; }
+
+/* 다크 모드 보정 */
+@media (prefers-color-scheme: dark){
+  #homeView.view::before{
+    background:
+      radial-gradient(600px 220px at 50% 0%, rgba(20,184,166,.22), transparent 60%),
+      radial-gradient(500px 200px at 10% 20%, rgba(16,185,129,.18), transparent 70%);
+  }
+  .home-metrics li{ background:#121821; }
+}
+
 
 /* ===== gameView 전용 최소 스타일 ===== */
 #gameView .game-hud {
