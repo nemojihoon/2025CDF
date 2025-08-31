@@ -674,20 +674,94 @@ document.addEventListener("DOMContentLoaded", () => {
       renderScoreboard(); // 아래의 골격 함수
     });
   }
+  // =========================================================
+  // SB: Scoreboard state (localStorage)
+  // =========================================================
+  const SB_KEY = "scoreboardState";
 
-  // 점수판 렌더링 골격(다음 단계에서 실제 UI/데이터 바인딩)
-  function renderScoreboard(){
-    const box = document.getElementById("scoreboardContainer");
-    if (!box) return;
-    box.innerHTML = `
-      <div class="chart-card">
-        <h3>점수판(준비 중)</h3>
-        <p class="center" style="margin:12px 0; color: var(--muted);">
-          다음 단계에서 디자인/정렬/정렬옵션 등을 붙일게요.
-        </p>
-      </div>
-    `;
+  function loadSB(){
+    const raw = localStorage.getItem(SB_KEY);
+    let s = null;
+    try { s = raw ? JSON.parse(raw) : null; } catch {}
+    if (!s || typeof s.target !== "number") {
+      s = { target: 5, progress: 0, history: [], lastResetAt: null };
+    }
+    return s;
   }
-  
+  function saveSB(s){ localStorage.setItem(SB_KEY, JSON.stringify(s)); }
+
+  function incrementSB(){
+    const s = loadSB();
+    s.progress = Math.min((s.progress || 0) + 1, 999);
+    saveSB(s);
+  }
+
+  function renderScoreboard(){
+    const s = loadSB();
+    const gauge = document.getElementById("sbGauge");
+    const elProg = document.getElementById("sbProgress");
+    const elTgt  = document.getElementById("sbTarget");
+    const elRem  = document.getElementById("sbRemaining");
+    const btnOk  = document.getElementById("sbPraiseBtn");
+    const ulHist = document.getElementById("sbHistory");
+    if (!gauge) return;
+
+    // 숫자 라벨
+    const target = Math.max(1, Math.floor(s.target || 5));
+    const progress = Math.max(0, Math.floor(s.progress || 0));
+    const remaining = Math.max(0, target - progress);
+    elProg && (elProg.textContent = String(progress));
+    elTgt  && (elTgt.textContent  = String(target));
+    elRem  && (elRem.textContent  = String(remaining));
+
+    // 게이지
+    gauge.innerHTML = "";
+    gauge.setAttribute("aria-valuemax", String(target));
+    gauge.setAttribute("aria-valuenow", String(progress));
+    for (let i=0;i<target;i++){
+      const seg = document.createElement("span");
+      seg.className = "seg" + (i < progress ? " filled" : "");
+      gauge.appendChild(seg);
+    }
+
+    // 버튼 활성화
+    if (btnOk) btnOk.disabled = progress < target;
+
+    // 히스토리
+    if (ulHist) {
+      ulHist.innerHTML = "";
+      (s.history || []).slice().reverse().forEach(h => {
+        const li = document.createElement("li");
+        const d = new Date(h.date);
+        li.textContent = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}  (목표 ${h.goal}개 달성)`;
+        ulHist.appendChild(li);
+      });
+    }
+  }
+
+  function handlePraiseClick(){
+    const s = loadSB();
+    const target = Math.max(1, Math.floor(s.target || 5));
+    const progress = Math.max(0, Math.floor(s.progress || 0));
+    if (progress < target) return;
+
+    // 기록 남기기 + 초기화
+    s.history = Array.isArray(s.history) ? s.history : [];
+    s.history.push({ date: new Date().toISOString(), goal: target });
+    s.progress = 0;
+    s.lastResetAt = new Date().toISOString();
+
+    alert("아이에게 칭찬과 보상을 주세요!");
+
+    const next = prompt("다음 목표 스택 수를 입력하세요", String(target));
+    const n = next ? parseInt(next, 10) : target;
+    if (Number.isFinite(n) && n > 0) s.target = n;
+
+    saveSB(s);
+    renderScoreboard();
+  }
+
+
+
 
 });

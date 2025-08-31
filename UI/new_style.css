@@ -525,6 +525,57 @@ footer small { opacity: 0.85; }
 #panel-graphs .chart-card:last-child{ margin-bottom: 0; }
 
 
+/* ===== Scoreboard ===== */
+.score-header{
+  display:flex; align-items:center; gap:10px; margin:6px 0 12px;
+}
+.score-header .badge{
+  display:inline-flex; align-items:center; gap:6px;
+  background:#e6fbf5; color:#047857; border:1px solid #a7f3d0;
+  padding:6px 10px; border-radius:999px; font-weight:700;
+}
+.score-header .muted{ color: var(--muted); }
+
+.gauge{
+  display:flex; flex-wrap:wrap; gap:8px;
+  background: var(--card);
+  border:1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px;
+  box-shadow: var(--shadow-sm);
+  min-height: 44px;
+}
+.gauge .seg{
+  flex: 1 0 28px;          /* 줄바꿈되며 유연하게 채움 */
+  height: 16px;
+  border-radius: 999px;
+  background: #eef2f7;
+  border: 1px solid var(--line);
+}
+.gauge .seg.filled{
+  background: linear-gradient(135deg, #02ceb3, #0cbf86);
+  border-color: transparent;
+  box-shadow: 0 4px 12px rgba(20,184,166,.25);
+  transform: translateZ(0);
+}
+
+.sb-history{ margin-top: 16px; }
+.sb-subtitle{ margin: 0 0 8px; font-size: 14px; color: var(--muted); }
+.sb-list{ margin:0; padding-left: 18px; }
+.sb-list li{ margin: 2px 0; }
+
+@media (prefers-reduced-motion: no-preference){
+  .gauge .seg.filled{ transition: box-shadow .2s ease, transform .2s ease; }
+  .gauge .seg.filled:hover{ transform: scale(1.02); }
+}
+
+@media (prefers-color-scheme: dark){
+  .gauge{ border-color:#1f2430; }
+  .gauge .seg{ background:#1b2230; border-color:#1f2430; }
+  .gauge .seg.filled{ background: linear-gradient(135deg, #14b8a6, #10b981); }
+  .score-header .badge{ background:#073b36; color:#a7f3d0; border-color:#115e59; }
+}
+
 
 
 /* 11) Keep backward-compat for existing selectors from old CSS ---------- */

@@ -215,13 +215,35 @@
     <!-- 새 화면: 점수판 섹션 추가 (dataView 아래 아무 곳이나 OK) -->
     <section id="scoreboardView" class="view">
       <h2>점수판</h2>
-      <p>점수판 UI는 다음 단계에서 디자인을 붙일게요.</p>
-      <div id="scoreboardContainer"></div>
+
+      <div class="score-header">
+        <span class="badge">
+          <strong id="sbProgress">0</strong>/<span id="sbTarget">5</span>
+        </span>
+        <span class="muted">다음 보상까지 <b id="sbRemaining">5</b>회</span>
+      </div>
+
+      <div id="sbGauge"
+          class="gauge"
+          role="progressbar"
+          aria-valuemin="0"
+          aria-valuemax="5"
+          aria-valuenow="0"
+          aria-label="목표 달성 진행도">
+        <!-- JS가 seg들을 만듭니다 -->
+      </div>
 
       <div class="actions">
+        <button id="sbPraiseBtn" class="run-btn" disabled>참 잘했어요</button>
         <button class="secondary" data-back>뒤로가기</button>
       </div>
+
+      <div class="sb-history">
+        <h3 class="sb-subtitle">달성 히스토리</h3>
+        <ul id="sbHistory" class="sb-list"></ul>
+      </div>
     </section>
+
     
   </main>
 
