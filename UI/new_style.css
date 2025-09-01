@@ -182,14 +182,23 @@ button:focus-visible {
 /* 홈 하단 CTA(데이터 보기 / 점수판) 버튼 줄 */
 /* 홈 하단 CTA(게임/데이터/점수판) */
 /* 홈 레이아웃: 1행(전체) + 2행(반반) */
+/* .home-cta{
+  display: grid;
+  gap: 12px;
+  max-width: 520px;      
+  margin: 18px auto 0;
+} */
+
 .home-cta{
   display: grid;
   gap: 12px;
-  max-width: 520px;       /* 너무 넓지 않게 */
-  margin: 18px auto 0;
+  width: 100%;            /* 카드 내부 폭을 그대로 사용 */
+  max-width: 720px;       /* .view의 max-width와 동일(카드 폭) */
+  margin: 18px auto 15px;
 }
+.home-cta__primary { margin-bottom: 3px;}
 .home-cta .cta-row{ display: grid; grid-template-columns: 1fr; }
-.home-cta .cta-row.two{ grid-template-columns: 1fr 1fr; gap: 12px; }
+.home-cta .cta-row.two{ grid-template-columns: 1fr 1fr; gap: 18px; }
 .home-cta button{ width: 100%; }
 
 /* 데이터 보기 버튼을 점수판과 동일한 회색(secondary)로 */
@@ -199,7 +208,12 @@ button:focus-visible {
   color: #111827;
   box-shadow: var(--shadow-sm);
 }
-#homeView #viewDataBtn{ margin: 0; display: inline-flex; } /* 기존 정렬 보정 유지 */
+/* #homeView #viewDataBtn{ margin: 0; display: inline-flex; } 기존 정렬 보정 유지 */
+#homeView #viewDataBtn {
+  display: inline-block;
+  margin: 0 auto;
+  text-align: center;
+}
 
 
 /* 점수판 버튼은 중립 톤 유지(secondary 사용 중이라면 그대로 OK) */
